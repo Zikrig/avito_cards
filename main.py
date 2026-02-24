@@ -136,6 +136,12 @@ def _config_section_keyboard(section: str, raw: dict[str, Any]) -> InlineKeyboar
                     callback_data="cfg_edit:output:background_color",
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text=f"font_family: {cfg.get('font_family', 'Arial, Helvetica, sans-serif')}",
+                    callback_data="cfg_edit:output:font_family",
+                )
+            ],
             [InlineKeyboardButton(text=f"padding: {cfg['padding']}", callback_data="cfg_edit:output:padding")],
             [InlineKeyboardButton(text=f"gap: {cfg['gap']}", callback_data="cfg_edit:output:gap")],
             [InlineKeyboardButton(text=f"photo_gap: {cfg['photo_gap']}", callback_data="cfg_edit:output:photo_gap")],
@@ -156,6 +162,12 @@ def _config_section_keyboard(section: str, raw: dict[str, Any]) -> InlineKeyboar
                 )
             ],
             [InlineKeyboardButton(text=f"text_color: {cfg['text_color']}", callback_data="cfg_edit:price:text_color")],
+            [
+                InlineKeyboardButton(
+                    text=f"font_family: {cfg.get('font_family', 'Arial, Helvetica, sans-serif')}",
+                    callback_data="cfg_edit:price:font_family",
+                )
+            ],
             [InlineKeyboardButton(text=f"font_size: {cfg['font_size']}", callback_data="cfg_edit:price:font_size")],
             [InlineKeyboardButton(text=f"padding: {cfg['padding']}", callback_data="cfg_edit:price:padding")],
             [InlineKeyboardButton(text=f"border: {cfg['border']}", callback_data="cfg_edit:price:border")],
@@ -183,11 +195,35 @@ def _config_section_keyboard(section: str, raw: dict[str, Any]) -> InlineKeyboar
         rows = [
             [
                 InlineKeyboardButton(
+                    text=f"features_title: {cfg.get('features_title', 'Характеристики')}",
+                    callback_data="cfg_edit:desc:features_title",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"description_title: {cfg.get('description_title', 'Описание')}",
+                    callback_data="cfg_edit:desc:description_title",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=f"background_color: {cfg['background_color']}",
                     callback_data="cfg_edit:desc:background_color",
                 )
             ],
             [InlineKeyboardButton(text=f"text_color: {cfg['text_color']}", callback_data="cfg_edit:desc:text_color")],
+            [
+                InlineKeyboardButton(
+                    text=f"font_family: {cfg.get('font_family', 'Arial, Helvetica, sans-serif')}",
+                    callback_data="cfg_edit:desc:font_family",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"title_font_size: {cfg.get('title_font_size', cfg['font_size'])}",
+                    callback_data="cfg_edit:desc:title_font_size",
+                )
+            ],
             [InlineKeyboardButton(text=f"font_size: {cfg['font_size']}", callback_data="cfg_edit:desc:font_size")],
             [
                 InlineKeyboardButton(
@@ -485,8 +521,14 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     gap = int(output_cfg["gap"])
     photo_gap = int(output_cfg.get("photo_gap", gap))
     bg_color = output_cfg["background_color"]
+    base_font_family = output_cfg.get("font_family", "Arial, Helvetica, sans-serif")
     grid_radius = int(output_cfg["photo_grid_border_radius"])
     left_ratio = float(output_cfg.get("left_column_ratio", 0.5))
+    desc_font_family = desc_cfg.get("font_family", base_font_family)
+    price_font_family = price_cfg.get("font_family", base_font_family)
+    title_font_size = int(desc_cfg.get("title_font_size", desc_cfg["font_size"]))
+    features_title = html.escape(desc_cfg.get("features_title", "Характеристики"))
+    description_title = html.escape(desc_cfg.get("description_title", "Описание"))
 
     safe_features = html.escape(features).replace("\n", "<br/>")
     safe_description = html.escape(description).replace("\n", "<br/>")
@@ -538,7 +580,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       margin: 0;
       width: {width}px;
       height: {height}px;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: {base_font_family};
       background: transparent;
     }}
 
@@ -642,13 +684,15 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .info-title {{
-      font-size: {int(desc_cfg["font_size"])}px;
+      font-size: {title_font_size}px;
+      font-family: {desc_font_family};
       font-weight: 900;
       margin-bottom: 4px;
     }}
 
     .info-text {{
       font-size: {int(desc_cfg["font_size"])}px;
+      font-family: {desc_font_family};
       line-height: {float(desc_cfg["line_height"])};
       font-weight: 700;
       white-space: normal;
@@ -661,6 +705,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       border-radius: {int(price_cfg["border_radius"])}px;
       background: {price_cfg["background_color"]};
       color: {price_cfg["text_color"]};
+      font-family: {price_font_family};
       font-size: {int(price_cfg["font_size"])}px;
       font-weight: 900;
       line-height: 1;
@@ -676,11 +721,11 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     <div class="right">
       <div class="info">
         <div class="info-block">
-          <div class="info-title">Характеристики</div>
+          <div class="info-title">{features_title}</div>
           <div class="info-text">{safe_features}</div>
         </div>
         <div class="info-block">
-          <div class="info-title">Описание</div>
+          <div class="info-title">{description_title}</div>
           <div class="info-text">{safe_description}</div>
         </div>
       </div>
