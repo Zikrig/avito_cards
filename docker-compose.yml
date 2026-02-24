@@ -1,0 +1,8 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./config.json:/app/config.json
+      - ./output:/app/output
+    restart: unless-stopped
