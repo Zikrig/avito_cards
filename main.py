@@ -439,7 +439,7 @@ async def description_handler(message: Message, state: FSMContext) -> None:
         return
     await state.update_data(description=description)
     await state.set_state(CardStates.waiting_for_price)
-    await message.answer("Отправьте цену (например: 12 990 ₽).", reply_markup=cancel_keyboard())
+    await message.answer("Отправьте название и цену.", reply_markup=cancel_keyboard())
 
 
 @router.message(CardStates.waiting_for_description)
@@ -711,6 +711,10 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     .price {{
       width: 100%;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       padding: {price_cfg["padding"]};
       border: {price_cfg["border"]};
       border-radius: {int(price_cfg["border_radius"])}px;
@@ -720,16 +724,19 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .price-title {{
-      font-size: {max(18, int(price_cfg["font_size"]) // 2)}px;
+      font-size: {max(14, int(price_cfg["font_size"]) // 3)}px;
       font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 4px;
+      line-height: 1;
+      margin-bottom: 0;
+      white-space: nowrap;
     }}
 
     .price-value {{
       font-size: {int(price_cfg["font_size"])}px;
       font-weight: 900;
       line-height: 1;
+      white-space: nowrap;
+      text-align: right;
       -webkit-text-stroke: {int(price_cfg["text_stroke_width"])}px {price_cfg["text_stroke_color"]};
       text-shadow: 0 0 1px {price_cfg["text_stroke_color"]};
     }}
