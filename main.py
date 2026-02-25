@@ -59,6 +59,13 @@ class ConfigStates(StatesGroup):
     waiting_for_value = State()
 
 
+class ExampleStates(StatesGroup):
+    waiting_for_photos = State()
+    waiting_for_features = State()
+    waiting_for_description = State()
+    waiting_for_price = State()
+
+
 router = Router()
 
 
@@ -78,6 +85,30 @@ def cancel_keyboard(extra_buttons: list[list[InlineKeyboardButton]] | None = Non
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def example_builder_keyboard(data: dict[str, Any]) -> InlineKeyboardMarkup:
+    photo_count = len(data.get("photo_file_ids", []))
+    required_count = data.get("example_required_count")
+    photos_label = (
+        f"📷 Фото ({photo_count}/{required_count})"
+        if required_count
+        else f"📷 Фото ({photo_count}/1-3)"
+    )
+    features_ok = "✅" if data.get("features") else "❌"
+    description_ok = "✅" if data.get("description") else "❌"
+    price_ok = "✅" if data.get("price_text") else "❌"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=photos_label, callback_data="example_edit_photos")],
+            [InlineKeyboardButton(text=f"🔧 Характеристики {features_ok}", callback_data="example_edit_features")],
+            [InlineKeyboardButton(text=f"📝 Описание {description_ok}", callback_data="example_edit_description")],
+            [InlineKeyboardButton(text=f"💳 Название+цена {price_ok}", callback_data="example_edit_price")],
+            [InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="example_generate")],
+            [InlineKeyboardButton(text="⬅️ К примерам", callback_data="menu_examples")],
+            [InlineKeyboardButton(text="↩️ В главное меню", callback_data="cancel")],
+        ]
+    )
+
+
 @router.message(Command("start"))
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -88,7 +119,7 @@ async def start_handler(message: Message, state: FSMContext) -> None:
 async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await state.set_state(CardStates.waiting_for_photos)
-    await state.update_data(photo_file_ids=[], example_autofill=False, example_required_count=None)
+    await state.update_data(photo_file_ids=[])
     await callback.message.edit_text(
         "Отправьте 1–3 фотографии товара по одной.",
         reply_markup=cancel_keyboard(
@@ -105,10 +136,10 @@ async def menu_examples(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="1️⃣ Образец с 1 фото", callback_data="example_auto_1")],
-            [InlineKeyboardButton(text="2️⃣ Образец с 2 фото", callback_data="example_auto_2")],
-            [InlineKeyboardButton(text="3️⃣ Образец с 3 фото", callback_data="example_auto_3")],
-            [InlineKeyboardButton(text="🧾 Все данные отдельно", callback_data="example_manual")],
+            [InlineKeyboardButton(text="1️⃣ Образец с 1 фото", callback_data="example_builder_1")],
+            [InlineKeyboardButton(text="2️⃣ Образец с 2 фото", callback_data="example_builder_2")],
+            [InlineKeyboardButton(text="3️⃣ Образец с 3 фото", callback_data="example_builder_3")],
+            [InlineKeyboardButton(text="🧾 Все данные отдельно", callback_data="example_builder_manual")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]
     )
@@ -116,31 +147,23 @@ async def menu_examples(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data == "example_manual")
-async def example_manual(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(F.data.in_({"example_builder_1", "example_builder_2", "example_builder_3", "example_builder_manual"}))
+async def example_builder_start(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await state.set_state(CardStates.waiting_for_photos)
-    await state.update_data(photo_file_ids=[], example_autofill=False, example_required_count=None)
-    await callback.message.edit_text(
-        "Ручной режим: отправьте 1–3 фотографии товара по одной.",
-        reply_markup=cancel_keyboard(
-            extra_buttons=[
-                [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]
-            ]
-        ),
+    required_count: int | None = None
+    if callback.data and callback.data.startswith("example_builder_") and callback.data != "example_builder_manual":
+        required_count = int(callback.data.split("_")[-1])
+    await state.update_data(
+        photo_file_ids=[],
+        features="",
+        description="",
+        price_text="",
+        example_required_count=required_count,
     )
-    await callback.answer()
-
-
-@router.callback_query(F.data.in_({"example_auto_1", "example_auto_2", "example_auto_3"}))
-async def example_auto(callback: CallbackQuery, state: FSMContext) -> None:
-    required = int((callback.data or "example_auto_1").split("_")[-1])
-    await state.clear()
-    await state.set_state(CardStates.waiting_for_photos)
-    await state.update_data(photo_file_ids=[], example_autofill=True, example_required_count=required)
+    data = await state.get_data()
     await callback.message.edit_text(
-        f"Режим примера: отправьте ровно {required} фото. После последнего фото карточка соберётся автоматически.",
-        reply_markup=cancel_keyboard(),
+        "Конструктор примера: выберите, что заполнить.",
+        reply_markup=example_builder_keyboard(data),
     )
     await callback.answer()
 
@@ -417,14 +440,175 @@ async def cfg_value_wrong_input_handler(message: Message) -> None:
     await message.answer("Отправьте новое значение параметра текстом.")
 
 
+@router.callback_query(F.data == "example_edit_photos")
+async def example_edit_photos(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    required_count = data.get("example_required_count")
+    await state.set_state(ExampleStates.waiting_for_photos)
+    hint = (
+        f"Отправьте фото (ровно {required_count} шт.), затем нажмите «Готово с фото»."
+        if required_count
+        else "Отправьте 1–3 фото, затем нажмите «Готово с фото»."
+    )
+    await callback.message.edit_text(
+        hint,
+        reply_markup=cancel_keyboard(
+            extra_buttons=[
+                [InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]
+            ]
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_edit_features")
+async def example_edit_features(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(ExampleStates.waiting_for_features)
+    await callback.message.edit_text(
+        "Введите характеристики товара текстом.",
+        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="⬅️ К конструктору", callback_data="example_back_builder")]]),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_edit_description")
+async def example_edit_description(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(ExampleStates.waiting_for_description)
+    await callback.message.edit_text(
+        "Введите описание товара текстом.",
+        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="⬅️ К конструктору", callback_data="example_back_builder")]]),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_edit_price")
+async def example_edit_price(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(ExampleStates.waiting_for_price)
+    await callback.message.edit_text(
+        "Введите название и цену одной строкой.",
+        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="⬅️ К конструктору", callback_data="example_back_builder")]]),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_back_builder")
+@router.callback_query(F.data == "example_photos_done")
+async def example_back_builder(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    required_count = data.get("example_required_count")
+    photo_count = len(data.get("photo_file_ids", []))
+    if callback.data == "example_photos_done" and required_count and photo_count != int(required_count):
+        await callback.answer(f"Нужно ровно {required_count} фото. Сейчас: {photo_count}.", show_alert=True)
+        return
+    await state.set_state(None)
+    data = await state.get_data()
+    await callback.message.edit_text(
+        "Конструктор примера: выберите, что заполнить.",
+        reply_markup=example_builder_keyboard(data),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_generate")
+async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
+    data = await state.get_data()
+    photo_count = len(data.get("photo_file_ids", []))
+    required_count = data.get("example_required_count")
+    if required_count and photo_count != int(required_count):
+        await callback.answer(f"Для этого примера нужно ровно {required_count} фото.", show_alert=True)
+        return
+    if not required_count and not (1 <= photo_count <= 3):
+        await callback.answer("Нужно от 1 до 3 фото.", show_alert=True)
+        return
+    if not data.get("features"):
+        await callback.answer("Заполните характеристики.", show_alert=True)
+        return
+    if not data.get("description"):
+        await callback.answer("Заполните описание.", show_alert=True)
+        return
+    if not data.get("price_text"):
+        await callback.answer("Заполните название+цену.", show_alert=True)
+        return
+    await callback.answer()
+    await generate_and_send_card(
+        message=callback.message,
+        state=state,
+        bot=bot,
+        features=str(data.get("features", "")),
+        description=str(data.get("description", "")),
+        price_text=str(data.get("price_text", "")),
+    )
+
+
+@router.message(ExampleStates.waiting_for_photos, F.photo)
+async def example_collect_photos(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    photo_file_ids: list[str] = data.get("photo_file_ids", [])
+    required_count = data.get("example_required_count")
+    max_photos = int(required_count) if required_count else 3
+    if len(photo_file_ids) >= max_photos:
+        await message.answer(f"Лимит: {max_photos} фото.")
+        return
+    photo_file_ids.append(message.photo[-1].file_id)
+    await state.update_data(photo_file_ids=photo_file_ids)
+    await message.answer(
+        f"Фото добавлено: {len(photo_file_ids)}/{max_photos}",
+        reply_markup=cancel_keyboard(
+            extra_buttons=[
+                [InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]
+            ]
+        ),
+    )
+
+
+@router.message(ExampleStates.waiting_for_features, F.text)
+async def example_features_input(message: Message, state: FSMContext) -> None:
+    value = message.text.strip()
+    if not value:
+        await message.answer("Характеристики пустые.")
+        return
+    await state.update_data(features=value)
+    await state.set_state(None)
+    data = await state.get_data()
+    await message.answer("Характеристики сохранены.", reply_markup=example_builder_keyboard(data))
+
+
+@router.message(ExampleStates.waiting_for_description, F.text)
+async def example_description_input(message: Message, state: FSMContext) -> None:
+    value = message.text.strip()
+    if not value:
+        await message.answer("Описание пустое.")
+        return
+    await state.update_data(description=value)
+    await state.set_state(None)
+    data = await state.get_data()
+    await message.answer("Описание сохранено.", reply_markup=example_builder_keyboard(data))
+
+
+@router.message(ExampleStates.waiting_for_price, F.text)
+async def example_price_input(message: Message, state: FSMContext) -> None:
+    value = message.text.strip()
+    if not value:
+        await message.answer("Название+цена пустые.")
+        return
+    await state.update_data(price_text=value)
+    await state.set_state(None)
+    data = await state.get_data()
+    await message.answer("Название+цена сохранены.", reply_markup=example_builder_keyboard(data))
+
+
+@router.message(ExampleStates.waiting_for_photos)
+@router.message(ExampleStates.waiting_for_features)
+@router.message(ExampleStates.waiting_for_description)
+@router.message(ExampleStates.waiting_for_price)
+async def example_wrong_input(message: Message) -> None:
+    await message.answer("Неверный тип данных для текущего шага.")
+
+
 @router.callback_query(CardStates.waiting_for_photos, F.data == "photos_done")
 async def photos_done_callback(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     photo_file_ids = data.get("photo_file_ids", [])
-    if data.get("example_autofill"):
-        required = int(data.get("example_required_count", 1))
-        await callback.answer(f"Для этого примера отправьте ровно {required} фото.", show_alert=True)
-        return
     if len(photo_file_ids) < 1:
         await callback.answer("Нужно хотя бы одно фото.", show_alert=True)
         return
@@ -437,17 +621,19 @@ async def photos_done_callback(callback: CallbackQuery, state: FSMContext) -> No
 
 
 @router.message(CardStates.waiting_for_photos, F.photo)
-async def collect_photo_handler(message: Message, state: FSMContext, bot: Bot) -> None:
+async def collect_photo_handler(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     photo_file_ids: list[str] = data.get("photo_file_ids", [])
-    example_autofill = bool(data.get("example_autofill"))
-    required_count = int(data.get("example_required_count", 0) or 0)
-    max_photos = required_count if example_autofill and required_count > 0 else 3
+    max_photos = 3
 
     if len(photo_file_ids) >= max_photos:
         await message.answer(
             f"Достигнут лимит: {max_photos} фото.",
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(
+                extra_buttons=[
+                    [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]
+                ]
+            ),
         )
         return
 
@@ -455,26 +641,9 @@ async def collect_photo_handler(message: Message, state: FSMContext, bot: Bot) -
     photo_file_ids.append(largest_photo.file_id)
     await state.update_data(photo_file_ids=photo_file_ids)
 
-    if example_autofill and required_count > 0 and len(photo_file_ids) >= required_count:
-        await state.update_data(
-            features="Пример характеристик: материал, размер, состояние, комплектация.",
-            description="Пример описания товара для карточки объявления.",
-        )
-        await generate_and_send_card(
-            message=message,
-            state=state,
-            bot=bot,
-            features="Пример характеристик: материал, размер, состояние, комплектация.",
-            description="Пример описания товара для карточки объявления.",
-            price_text="Пример: 12 990 ₽",
-        )
-        return
-
     await message.answer(
         f"Фото добавлено: {len(photo_file_ids)}/{max_photos}",
-        reply_markup=cancel_keyboard()
-        if example_autofill
-        else cancel_keyboard(
+        reply_markup=cancel_keyboard(
             extra_buttons=[
                 [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]
             ]
