@@ -490,7 +490,7 @@ async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
         if APP_CONFIG is None:
             raise RuntimeError("Config not loaded")
         photo_bytes_list = await download_photos(bot, photo_file_ids)
-        output_file = await build_card(
+        output_file, html_file = await build_card(
             config=APP_CONFIG,
             photos=photo_bytes_list,
             features=features,
@@ -503,17 +503,16 @@ async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
         await message.answer(f"Ошибка при создании карточки: {exc}")
         return
 
-    buffered_file = BufferedInputFile(
-        output_file.read_bytes(),
-        filename=output_file.name,
+    photo_file = BufferedInputFile(output_file.read_bytes(), filename=output_file.name)
+    html_export_file = BufferedInputFile(html_file.read_bytes(), filename=html_file.name)
+    await message.answer_photo(photo_file, caption="Готово. Карточка для Авито создана.")
+    await message.answer_document(
+        html_export_file,
+        caption="HTML-шаблон с путями к изображениям (pic1.jpg, pic2.jpg, pic3.jpg).",
     )
-    await message.answer_photo(buffered_file, caption="Готово. Карточка для Авито создана.")
     output_file.unlink(missing_ok=True)
+    html_file.unlink(missing_ok=True)
     await state.clear()
-    try:
-        output_file.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 @router.message(CardStates.waiting_for_price)
@@ -906,7 +905,7 @@ async def build_card(
     price: str,
     html_template: str | None,
     user_id: int,
-) -> Path:
+) -> tuple[Path, Path]:
     if html_template:
         price_title = config.raw["cards"]["price_block"].get("title", "Название-цена")
         html_content = build_html_from_template(
@@ -924,8 +923,16 @@ async def build_card(
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = OUTPUT_DIR / f"card_{user_id}_{ts}.png"
+    html_output_path = OUTPUT_DIR / f"card_{user_id}_{ts}.html"
+
+    # Экспортируем HTML с относительными путями к картинкам: pic1.jpg, pic2.jpg, pic3.jpg
+    html_export = html_content
+    for idx, photo in enumerate(photos, start=1):
+        html_export = html_export.replace(to_data_url(photo), f"pic{idx}.jpg")
+
+    html_output_path.write_text(html_export, encoding="utf-8")
     await render_png(html_content, width, height, output_path)
-    return output_path
+    return output_path, html_output_path
 
 
 async def run() -> None:
