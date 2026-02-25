@@ -651,7 +651,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .three-top {{
-      flex: 0 0 46%;
+      flex: 0 0 25%;
       min-height: 0;
     }}
 
@@ -806,7 +806,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .price-title {{
-      font-size: {max(14, int(price_cfg["font_size"]) // 3)}px;
+      font-size: {max(12, int(price_cfg["font_size"]) - 20)}px;
       font-weight: 800;
       line-height: 1;
       margin-bottom: 0;
@@ -814,7 +814,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .price-value {{
-      font-size: {int(price_cfg["font_size"])}px;
+      font-size: {max(12, int(price_cfg["font_size"]) - 20)}px;
       font-weight: 900;
       line-height: 1;
       white-space: nowrap;
