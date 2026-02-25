@@ -1,33 +1,24 @@
 import asyncio
-import base64
-import html
-import json
-import os
-from dataclasses import dataclass
-from datetime import datetime
-from io import BytesIO
-from pathlib import Path
-from typing import Any
 
-from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import (
-    BufferedInputFile,
-    Message,
-    CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
-from playwright.async_api import async_playwright
+from app.bot import run
 
 
-BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
-APP_CONFIG: "AppConfig | None" = None
+if __name__ == "__main__":
+    asyncio.run(run())
+'''
+'''Legacy monolithic code below is intentionally disabled.
+
+import asyncio
+
+from app.bot import run
+
+
+if __name__ == "__main__":
+    asyncio.run(run())
+
+import asyncio
+
+from app.bot import run
 
 
 @dataclass
@@ -437,12 +428,12 @@ async def example_edit_photos(callback: CallbackQuery, state: FSMContext) -> Non
     await state.set_state(ExampleStates.waiting_for_photos)
     # При повторном заходе перезаписываем фото примера
     await state.update_data(example_photo_file_ids=[])
-    hint = "Отправьте 3 фото примера по одной, затем нажмите «Готово с фото»."
+    hint = "Отправьте 3 фото примера по одной, затем нажмите «Готово»."
     await callback.message.edit_text(
         hint,
         reply_markup=cancel_keyboard(
             extra_buttons=[
-                [InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]
+                [InlineKeyboardButton(text="✅ Готово", callback_data="example_photos_done")]
             ]
         ),
     )
@@ -551,7 +542,7 @@ async def example_collect_photos(message: Message, state: FSMContext) -> None:
         f"Фото добавлено: {len(photo_file_ids)}/{max_photos}",
         reply_markup=cancel_keyboard(
             extra_buttons=[
-                [InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]
+                [InlineKeyboardButton(text="✅ Готово", callback_data="example_photos_done")]
             ]
         ),
     )
