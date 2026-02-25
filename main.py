@@ -541,9 +541,11 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     def img_cell(data_url: str) -> str:
         return f'<div class="cell"><img src="{data_url}" alt="" /></div>'
 
-    # 1 фото — 4 экземпляра друг под другом; 2 — две ячейки поровну; 3 — сверху 50%, снизу две по 50% слева и справа
+    photo_urls = [to_data_url(p) for p in photos]
+
+    # 1 фото — 4 экземпляра друг под другом; 2 — A/B/A/B; 3 — спец-лейаут (три горизонтальных вверху)
     if n == 1:
-        u = to_data_url(photos[0])
+        u = photo_urls[0]
         photo_area = f'''
     <div class="photo-area photo-area-1">
       {img_cell(u)}
@@ -552,7 +554,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       {img_cell(u)}
     </div>'''
     elif n == 2:
-        u1, u2 = to_data_url(photos[0]), to_data_url(photos[1])
+        u1, u2 = photo_urls[0], photo_urls[1]
         photo_area = f'''
     <div class="photo-area photo-area-2">
       {img_cell(u1)}
@@ -561,15 +563,59 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       {img_cell(u2)}
     </div>'''
     else:
-        u1, u2, u3 = to_data_url(photos[0]), to_data_url(photos[1]), to_data_url(photos[2])
+        u1, u2, u3 = photo_urls[0], photo_urls[1], photo_urls[2]
         photo_area = f'''
-    <div class="photo-area photo-area-3">
+    <div class="photo-strip">
       {img_cell(u1)}
-      <div class="bottom-row">
-        {img_cell(u2)}
-        {img_cell(u3)}
-      </div>
+      {img_cell(u2)}
+      {img_cell(u3)}
     </div>'''
+
+    if n == 3:
+        card_class = "layout-three"
+        card_body = f"""
+    <div class="three-top">
+      {photo_area}
+    </div>
+    <div class="three-bottom">
+      <div class="three-left info-block">
+        <div class="info-title">{description_title}</div>
+        <div class="info-text">{safe_description}</div>
+      </div>
+      <div class="three-right">
+        <div class="info-block">
+          <div class="info-title">{features_title}</div>
+          <div class="info-text">{safe_features}</div>
+        </div>
+        <div class="price">
+          <div class="price-title">{safe_price_title}</div>
+          <div class="price-value">{safe_price}</div>
+        </div>
+      </div>
+    </div>"""
+    else:
+        card_class = "layout-default"
+        card_body = f"""
+    <div class="content">
+      <div class="left">{photo_area}
+      </div>
+      <div class="right">
+        <div class="info">
+          <div class="info-block">
+            <div class="info-title">{features_title}</div>
+            <div class="info-text">{safe_features}</div>
+          </div>
+          <div class="info-block">
+            <div class="info-title">{description_title}</div>
+            <div class="info-text">{safe_description}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="price">
+      <div class="price-title">{safe_price_title}</div>
+      <div class="price-value">{safe_price}</div>
+    </div>"""
 
     return f"""<!doctype html>
 <html lang="ru">
@@ -601,6 +647,44 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       min-height: 0;
       display: flex;
       gap: {gap}px;
+    }}
+
+    .three-top {{
+      flex: 0 0 46%;
+      min-height: 0;
+    }}
+
+    .photo-strip {{
+      width: 100%;
+      height: 100%;
+      display: flex;
+      gap: {photo_gap}px;
+    }}
+
+    .photo-strip .cell {{
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+    }}
+
+    .three-bottom {{
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: {gap}px;
+    }}
+
+    .three-left {{
+      flex: 1;
+    }}
+
+    .three-right {{
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: {photo_gap}px;
     }}
 
     .left {{
@@ -743,27 +827,8 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
   </style>
 </head>
 <body>
-  <div id="card">
-    <div class="content">
-      <div class="left">{photo_area}
-      </div>
-      <div class="right">
-        <div class="info">
-          <div class="info-block">
-            <div class="info-title">{features_title}</div>
-            <div class="info-text">{safe_features}</div>
-          </div>
-          <div class="info-block">
-            <div class="info-title">{description_title}</div>
-            <div class="info-text">{safe_description}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="price">
-      <div class="price-title">{safe_price_title}</div>
-      <div class="price-value">{safe_price}</div>
-    </div>
+  <div id="card" class="{card_class}">
+{card_body}
   </div>
 </body>
 </html>
