@@ -115,7 +115,7 @@ async def menu_config(callback: CallbackQuery, state: FSMContext) -> None:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📐 Размеры и фон", callback_data="cfg_section_output")],
-            [InlineKeyboardButton(text="💰 Цена", callback_data="cfg_section_price")],
+            [InlineKeyboardButton(text="💰 Название-цена", callback_data="cfg_section_price")],
             [InlineKeyboardButton(text="📝 Описание", callback_data="cfg_section_desc")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]
@@ -155,6 +155,7 @@ def _config_section_keyboard(section: str, raw: dict[str, Any]) -> InlineKeyboar
     elif section == "price":
         cfg = raw["cards"]["price_block"]
         rows = [
+            [InlineKeyboardButton(text=f"title: {cfg.get('title', 'Название-цена')}", callback_data="cfg_edit:price:title")],
             [
                 InlineKeyboardButton(
                     text=f"background_color: {cfg['background_color']}",
@@ -291,7 +292,7 @@ async def cfg_section_price(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Конфиг не загружен", show_alert=True)
         return
     kb = _config_section_keyboard("price", APP_CONFIG.raw)
-    await callback.message.edit_text("Параметры price_block:", reply_markup=kb)
+    await callback.message.edit_text("Параметры блока «Название-цена»:", reply_markup=kb)
     await callback.answer()
 
 
@@ -532,6 +533,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
 
     safe_features = html.escape(features).replace("\n", "<br/>")
     safe_description = html.escape(description).replace("\n", "<br/>")
+    safe_price_title = html.escape(price_cfg.get("title", "Название-цена"))
     safe_price = html.escape(price)
     n = len(photos)
 
@@ -589,7 +591,15 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       height: 100%;
       background: {bg_color};
       display: flex;
+      flex-direction: column;
       padding: {padding}px;
+      gap: {gap}px;
+    }}
+
+    .content {{
+      flex: 1;
+      min-height: 0;
+      display: flex;
       gap: {gap}px;
     }}
 
@@ -699,6 +709,7 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
     }}
 
     .price {{
+      width: 100%;
       flex-shrink: 0;
       padding: {price_cfg["padding"]};
       border: {price_cfg["border"]};
@@ -706,6 +717,16 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       background: {price_cfg["background_color"]};
       color: {price_cfg["text_color"]};
       font-family: {price_font_family};
+    }}
+
+    .price-title {{
+      font-size: {max(18, int(price_cfg["font_size"]) // 2)}px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }}
+
+    .price-value {{
       font-size: {int(price_cfg["font_size"])}px;
       font-weight: 900;
       line-height: 1;
@@ -716,20 +737,25 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
 </head>
 <body>
   <div id="card">
-    <div class="left">{photo_area}
-    </div>
-    <div class="right">
-      <div class="info">
-        <div class="info-block">
-          <div class="info-title">{features_title}</div>
-          <div class="info-text">{safe_features}</div>
-        </div>
-        <div class="info-block">
-          <div class="info-title">{description_title}</div>
-          <div class="info-text">{safe_description}</div>
+    <div class="content">
+      <div class="left">{photo_area}
+      </div>
+      <div class="right">
+        <div class="info">
+          <div class="info-block">
+            <div class="info-title">{features_title}</div>
+            <div class="info-text">{safe_features}</div>
+          </div>
+          <div class="info-block">
+            <div class="info-title">{description_title}</div>
+            <div class="info-text">{safe_description}</div>
+          </div>
         </div>
       </div>
-      <div class="price">{safe_price}</div>
+    </div>
+    <div class="price">
+      <div class="price-title">{safe_price_title}</div>
+      <div class="price-value">{safe_price}</div>
     </div>
   </div>
 </body>

@@ -12,6 +12,7 @@
   },
   "cards": {
     "price_block": {
+      "title": "Название-цена",
       "background_color": "#ffffff",
       "text_color": "#ffffff",
       "font_family": "Arial, Helvetica, sans-serif",
