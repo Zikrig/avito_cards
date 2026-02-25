@@ -510,8 +510,12 @@ async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
         html_export_file,
         caption="HTML-шаблон с путями к изображениям (pic1.jpg, pic2.jpg, pic3.jpg).",
     )
-    output_file.unlink(missing_ok=True)
-    html_file.unlink(missing_ok=True)
+
+    try:
+        output_file.unlink(missing_ok=True)
+        html_file.unlink(missing_ok=True)
+    except OSError:
+        pass
     await state.clear()
 
 
