@@ -3,6 +3,7 @@ import base64
 import html
 import json
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -87,9 +88,10 @@ async def start_handler(message: Message, state: FSMContext) -> None:
 async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await state.set_state(CardStates.waiting_for_photos)
-    await state.update_data(photo_file_ids=[])
+    await state.update_data(photo_file_ids=[], html_template=None)
     await callback.message.edit_text(
-        "Отправьте 1–3 фотографии товара по одной.",
+        "Отправьте 1–3 фотографии товара по одной.\n"
+        "Опционально: прикрепите HTML-файл шаблона (с путями pic1.jpg/png, pic2.jpg/png, pic3.jpg/png).",
         reply_markup=cancel_keyboard(
             extra_buttons=[
                 [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]
@@ -415,9 +417,31 @@ async def collect_photo_handler(message: Message, state: FSMContext) -> None:
     )
 
 
+@router.message(CardStates.waiting_for_photos, F.document)
+async def collect_html_template_handler(message: Message, state: FSMContext, bot: Bot) -> None:
+    document = message.document
+    filename = (document.file_name or "").lower()
+    if not (filename.endswith(".html") or filename.endswith(".htm")):
+        await message.answer("Поддерживается только HTML-файл (.html/.htm).")
+        return
+    telegram_file = await bot.get_file(document.file_id)
+    buffer = BytesIO()
+    await bot.download_file(telegram_file.file_path, destination=buffer)
+    template_text = buffer.getvalue().decode("utf-8", errors="replace")
+    await state.update_data(html_template=template_text)
+    await message.answer(
+        "HTML-шаблон сохранён. Теперь отправьте фото и нажмите «Готово».",
+        reply_markup=cancel_keyboard(
+            extra_buttons=[
+                [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]
+            ]
+        ),
+    )
+
+
 @router.message(CardStates.waiting_for_photos)
 async def wrong_photos_input_handler(message: Message) -> None:
-    await message.answer("Отправьте фото или нажмите кнопку «Готово».")
+    await message.answer("Отправьте фото/HTML-шаблон или нажмите кнопку «Готово».")
 
 
 @router.message(CardStates.waiting_for_features, F.text)
@@ -458,6 +482,7 @@ async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     photo_file_ids: list[str] = data.get("photo_file_ids", [])
     features: str = data.get("features", "")
     description: str = data.get("description", "")
+    html_template: str | None = data.get("html_template")
 
     await message.answer("Собираю карточку, подождите...")
 
@@ -471,6 +496,7 @@ async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
             features=features,
             description=description,
             price=price_text,
+            html_template=html_template,
             user_id=message.from_user.id if message.from_user else 0,
         )
     except Exception as exc:  # noqa: BLE001
@@ -508,6 +534,38 @@ async def download_photos(bot: Bot, file_ids: list[str]) -> list[bytes]:
 def to_data_url(photo_bytes: bytes) -> str:
     b64 = base64.b64encode(photo_bytes).decode("ascii")
     return f"data:image/jpeg;base64,{b64}"
+
+
+def build_html_from_template(
+    template_html: str,
+    photos: list[bytes],
+    features: str,
+    description: str,
+    price: str,
+    price_title: str,
+) -> str:
+    html_out = template_html
+    for idx, photo in enumerate(photos, start=1):
+        data_url = to_data_url(photo)
+        name_pattern = rf"pic{idx}\.(png|jpe?g|webp|gif)"
+        html_out = re.sub(
+            rf'(["\']){name_pattern}\1',
+            lambda m: f'{m.group(1)}{data_url}{m.group(1)}',
+            html_out,
+            flags=re.IGNORECASE,
+        )
+        html_out = re.sub(
+            rf"url\(\s*{name_pattern}\s*\)",
+            f"url({data_url})",
+            html_out,
+            flags=re.IGNORECASE,
+        )
+
+    html_out = html_out.replace("{{features}}", html.escape(features).replace("\n", "<br/>"))
+    html_out = html_out.replace("{{description}}", html.escape(description).replace("\n", "<br/>"))
+    html_out = html_out.replace("{{price}}", html.escape(price))
+    html_out = html_out.replace("{{price_title}}", html.escape(price_title))
+    return html_out
 
 
 def build_html(config: dict[str, Any], photos: list[bytes], features: str, description: str, price: str) -> str:
@@ -582,16 +640,14 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
         <div class="info-title">{description_title}</div>
         <div class="info-text">{safe_description}</div>
       </div>
-      <div class="three-right">
-        <div class="info-block">
-          <div class="info-title">{features_title}</div>
-          <div class="info-text">{safe_features}</div>
-        </div>
-        <div class="price">
-          <div class="price-title">{safe_price_title}</div>
-          <div class="price-value">{safe_price}</div>
-        </div>
+      <div class="three-right info-block">
+        <div class="info-title">{features_title}</div>
+        <div class="info-text">{safe_features}</div>
       </div>
+    </div>
+    <div class="price">
+      <div class="price-title">{safe_price_title}</div>
+      <div class="price-value">{safe_price}</div>
     </div>"""
     else:
         card_class = "layout-default"
@@ -682,9 +738,6 @@ def build_html(config: dict[str, Any], photos: list[bytes], features: str, descr
       flex: 1;
       min-width: 0;
       min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: {photo_gap}px;
     }}
 
     .left {{
@@ -851,9 +904,21 @@ async def build_card(
     features: str,
     description: str,
     price: str,
+    html_template: str | None,
     user_id: int,
 ) -> Path:
-    html_content = build_html(config.raw, photos, features, description, price)
+    if html_template:
+        price_title = config.raw["cards"]["price_block"].get("title", "Название-цена")
+        html_content = build_html_from_template(
+            html_template=html_template,
+            photos=photos,
+            features=features,
+            description=description,
+            price=price,
+            price_title=price_title,
+        )
+    else:
+        html_content = build_html(config.raw, photos, features, description, price)
     width = int(config.raw["output"]["width"])
     height = int(config.raw["output"]["height"])
 
