@@ -9,6 +9,39 @@ from playwright.async_api import async_playwright
 from .config import AppConfig
 from .constants import LOGO_DEFAULT_PATH, OUTPUT_DIR, SVG_TEMPLATE_PATH
 
+# Папка со шрифтами для совпадения с примером (MuseoSansVkusVill). Если файлы есть — подключаются при рендере.
+FONTS_DIR = SVG_TEMPLATE_PATH.parent / "fonts"
+SVG_FONT_FAMILIES = (
+    ("MuseoSansVkusVill-100Italic", "MuseoSansVkusVill-100Italic"),
+    ("MuseoSansVkusVill-900", "MuseoSansVkusVill-900"),
+)
+FONT_EXTENSIONS = (".woff2", ".woff", ".ttf")
+
+
+def _get_font_face_css() -> str:
+    """Собирает @font-face для шрифтов из FONTS_DIR, чтобы карточка совпадала с примером по шрифтам."""
+    if not FONTS_DIR.exists():
+        return ""
+    parts = []
+    for font_family, file_stem in SVG_FONT_FAMILIES:
+        for ext in FONT_EXTENSIONS:
+            path = FONTS_DIR / f"{file_stem}{ext}"
+            if path.exists():
+                try:
+                    data = path.read_bytes()
+                    b64 = base64.b64encode(data).decode("ascii")
+                    mime = "font/woff2" if ext == ".woff2" else "font/woff" if ext == ".woff" else "font/ttf"
+                    fmt = "woff2" if ext == ".woff2" else "woff" if ext == ".woff" else "truetype"
+                    parts.append(
+                        f"@font-face{{font-family:'{font_family}';src:url(data:{mime};base64,{b64}) format('{fmt}');}}"
+                    )
+                except Exception:
+                    pass
+                break
+    if not parts:
+        return ""
+    return "<style>" + "".join(parts) + "</style>"
+
 
 def to_data_url(photo_bytes: bytes, media_type: str = "image/jpeg") -> str:
     b64 = base64.b64encode(photo_bytes).decode("ascii")
@@ -156,8 +189,9 @@ def build_svg(
 
 
 async def render_svg_to_png(svg_content: str, output_path: Path, width: int = 1921, height: int = 1081) -> None:
-    """Рендерит SVG в PNG через Playwright (viewBox шаблона 0 0 1921 1081)."""
-    html_page = f"""<!doctype html><html><head><meta charset="UTF-8"/></head><body style="margin:0;background:white;">{svg_content}</body></html>"""
+    """Рендерит SVG в PNG через Playwright (viewBox шаблона 0 0 1921 1081). Подключает шрифты из app/fonts при наличии."""
+    font_css = _get_font_face_css()
+    html_page = f"""<!doctype html><html><head><meta charset="UTF-8"/>{font_css}</head><body style="margin:0;background:white;">{svg_content}</body></html>"""
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page(viewport={"width": width, "height": height})
