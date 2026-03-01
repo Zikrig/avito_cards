@@ -5,7 +5,7 @@
 <style type="text/css">
 	.st0{fill:#FFFFFF;stroke:#161615;stroke-miterlimit:10;}
 	.st1{fill:none;}
-	.st2{font-family:'MuseoSansVkusVill-100Italic';}
+	.st2{font-family:'MuseoSansVkusVill-100Italic', Arial, sans-serif;}
 	.st3{font-size:32px;}
 	
 		.st4{fill:none;stroke:url(#SVGID_00000147917818170471009470000008278337805677430706_);stroke-width:2.3062;stroke-miterlimit:10;}
@@ -16,7 +16,7 @@
 	.st7{fill:url(#SVGID_00000118396442373618680160000003557543888747193510_);}
 	.st8{fill:url(#SVGID_00000118355606897414713260000006749258002368913077_);}
 	.st9{fill:none;stroke:#FFB823;stroke-miterlimit:10;}
-	.st10{font-family:'MuseoSansVkusVill-900';}
+	.st10{font-family:'MuseoSansVkusVill-900', Arial, sans-serif;}
 	.st11{font-size:74px;}
 	.st12{font-size:33px;}
 	.st13{fill:#FFFFFF;}
@@ -120,8 +120,7 @@
 </linearGradient>
 <path style="fill:url(#SVGID_00000162322642350144835180000008580801171968517295_);" d="M519.3,210.5H55.7v-66.1h510.6v19.1
 	C566.3,189.5,545.3,210.5,519.3,210.5z"/>
-<image style="overflow:visible;" width="2480" height="1748" xlink:href="C:\Users\user\Downloads\Дополнительный.png"  transform="matrix(0.193 0 0 0.193 847.4407 726.5693)">
-</image>
+<image x="847.44" y="726.57" width="478.64" height="337.36" preserveAspectRatio="xMidYMid meet" style="overflow:visible;" xlink:href="C:\Users\user\Downloads\Дополнительный.png"/>
 <linearGradient id="SVGID_00000163052770352761087520000007160945398452126623_" gradientUnits="userSpaceOnUse" x1="1920.5" y1="820.9156" x2="1373.901" y2="820.9156">
 	<stop  offset="0" style="stop-color:#DC5A24"/>
 	<stop  offset="1" style="stop-color:#FFCA33"/>
@@ -133,8 +132,7 @@
 <text transform="matrix(1 0 0 1 53.0739 124.8789)"><tspan x="0" y="0" class="st10 st11">Msi Bravo 15.6</tspan><tspan x="0" y="64" class="st10 st12">   </tspan><tspan x="24.8" y="64" class="st13 st10 st12">RTX 4060 Ryzen 7 7535HS</tspan></text>
 <rect x="1479.7" y="776.7" class="st1" width="426.1" height="197.2"/>
 <text transform="matrix(1 0 0 1 1479.6936 848.0522)" class="st13 st10 st14">69 990 ₽ </text>
-<text id="user-specs" transform="matrix(1 0 0 1 56 430)" class="st10 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5</tspan></text>
-<g>
+<g id="original-specs-paths" visibility="hidden">
 	<g>
 		<g>
 			<path d="M74.7,423.3c2.6,0,5.7,0.8,7.5,2.8l-0.9,1c-1.6-1.6-4-2.5-6.6-2.5c-6,0-11.7,5.4-11.7,12.1c0,4.7,3.1,8.1,7.9,8.1
@@ -351,6 +349,7 @@
 	<path class="st16" d="M174.2,621.1c0,8,0,16,0,24"/>
 	<path class="st16" d="M174.2,687c0,8,0,16,0,24"/>
 </g>
+<text id="user-specs" transform="matrix(1 0 0 1 56 430)" class="st10 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1_LEFT</tspan><tspan x="200" y="0">PLACEHOLDER_SPEC_1_RIGHT</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2_LEFT</tspan><tspan x="200" y="66">PLACEHOLDER_SPEC_2_RIGHT</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3_LEFT</tspan><tspan x="200" y="132">PLACEHOLDER_SPEC_3_RIGHT</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4_LEFT</tspan><tspan x="200" y="198">PLACEHOLDER_SPEC_4_RIGHT</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5_LEFT</tspan><tspan x="200" y="264">PLACEHOLDER_SPEC_5_RIGHT</tspan></text>
 <image style="overflow:visible;" width="512" height="512" xlink:href="../../mark_10093833.png"  transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 895.2937)">
 </image>
 <image style="overflow:visible;" width="512" height="512" xlink:href="../../delivery-truck_3607751.png"  transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 946.9109)">

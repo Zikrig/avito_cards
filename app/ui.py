@@ -13,8 +13,13 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def cancel_keyboard(extra_buttons: list[list[InlineKeyboardButton]] | None = None) -> InlineKeyboardMarkup:
+def cancel_keyboard(
+    extra_buttons: list[list[InlineKeyboardButton]] | None = None,
+    default_callback: str | None = None,
+) -> InlineKeyboardMarkup:
     rows = extra_buttons[:] if extra_buttons else []
+    if default_callback:
+        rows.append([InlineKeyboardButton(text="По умолчанию", callback_data=default_callback)])
     rows.append([InlineKeyboardButton(text="↩️ Отмена", callback_data="cancel")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
