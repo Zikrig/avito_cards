@@ -20,11 +20,60 @@ SVG_MAIN_HREF = "IMG_2587.JPG"
 SVG_MINOR1_HREF = "IMG_2589.JPG"
 SVG_MINOR2_HREF = "../../ChatGPT Image 27 февр. 2026 г., 13_59_03.png"
 SVG_LOGO_HREF = "C:\\Users\\user\\Downloads\\Дополнительный.png"
+SVG_SPECS_GRID = """
+<g id="spec-grid">
+	<g>
+		<path class="st15" d="M56.1,468.2c132.5-0.5,281.1-0.5,413.6,0C337.2,468.8,188.6,468.8,56.1,468.2L56.1,468.2z"/>
+	</g>
+	<g>
+		<path class="st15" d="M56.1,534.2c132.5-0.5,281.1-0.5,413.6,0C337.2,534.7,188.6,534.7,56.1,534.2L56.1,534.2z"/>
+	</g>
+	<g>
+		<path class="st15" d="M56.1,600.1c132.5-0.5,281.1-0.5,413.6,0C337.2,600.6,188.6,600.6,56.1,600.1L56.1,600.1z"/>
+	</g>
+	<g>
+		<path class="st15" d="M56.1,666c132.5-0.5,281.1-0.5,413.6,0C337.2,666.6,188.6,666.6,56.1,666L56.1,666z"/>
+	</g>
+	<path class="st16" d="M174.2,423.3c0,8,0,16,0,24"/>
+	<path class="st16" d="M174.2,489.2c0,8,0,16,0,24"/>
+	<path class="st16" d="M174.2,555.1c0,8,0,16,0,24"/>
+	<path class="st16" d="M174.2,621.1c0,8,0,16,0,24"/>
+	<path class="st16" d="M174.2,687c0,8,0,16,0,24"/>
+</g>
+"""
 
 
 def _esc(s: str) -> str:
     """Экранирует текст для вставки в SVG/XML."""
     return html.escape(s or "", quote=True)
+
+
+def _wrap_minor_text(text: str, max_chars: int = 38, max_lines: int = 3) -> list[str]:
+    """Делит описание на 3 строки, чтобы не наезжало на фото."""
+    src = " ".join((text or "").replace("\r", "\n").split())
+    if not src:
+        return []
+    words = src.split(" ")
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+        if len(candidate) <= max_chars:
+            current = candidate
+            continue
+        lines.append(current if current else word[:max_chars])
+        current = word if len(word) <= max_chars else word[max_chars:]
+        if len(lines) >= max_lines - 1:
+            break
+    if len(lines) < max_lines and current:
+        lines.append(current)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+    if len(lines) == max_lines and any(len(w) for w in words):
+        used = " ".join(lines)
+        if len(src) > len(used) and len(lines[-1]) > 1:
+            lines[-1] = lines[-1].rstrip(". ") + "..."
+    return lines
 
 
 def build_svg(
@@ -61,7 +110,11 @@ def build_svg(
     if logo_url:
         svg = svg.replace(f'xlink:href="{SVG_LOGO_HREF}"', f'xlink:href="{logo_url}"')
 
-    minor_lines = (text_minor or "").strip().split("\n")
+    minor_input = (text_minor or "").strip()
+    if "\n" in minor_input:
+        minor_lines = [line.strip() for line in minor_input.split("\n") if line.strip()]
+    else:
+        minor_lines = _wrap_minor_text(minor_input)
     minor_1 = _esc((minor_lines[0] if len(minor_lines) > 0 else "") or "Это решение подойдёт не только ")
     minor_2 = _esc((minor_lines[1] if len(minor_lines) > 1 else "") or "геймерам, но и дизайнерам, стримерам,  ")
     minor_3 = _esc((minor_lines[2] if len(minor_lines) > 2 else "") or "3D-моделлерам и видеомонтажёрам.")
@@ -96,6 +149,8 @@ def build_svg(
     if has_specs:
         svg = svg.replace('id="original-specs-paths"', 'id="original-specs-paths" visibility="hidden"')
         svg = svg.replace('id="user-specs" visibility="hidden"', 'id="user-specs"')
+        if "id=\"spec-grid\"" not in svg:
+            svg = svg.replace("</svg>", f"{SVG_SPECS_GRID}\n</svg>")
 
     return svg
 

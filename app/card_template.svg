@@ -350,7 +350,7 @@
 	<path class="st16" d="M174.2,621.1c0,8,0,16,0,24"/>
 	<path class="st16" d="M174.2,687c0,8,0,16,0,24"/>
 </g>
-<text id="user-specs" visibility="hidden" transform="matrix(1 0 0 1 56 430)" class="st10 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1_LEFT</tspan><tspan x="200" y="0">PLACEHOLDER_SPEC_1_RIGHT</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2_LEFT</tspan><tspan x="200" y="66">PLACEHOLDER_SPEC_2_RIGHT</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3_LEFT</tspan><tspan x="200" y="132">PLACEHOLDER_SPEC_3_RIGHT</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4_LEFT</tspan><tspan x="200" y="198">PLACEHOLDER_SPEC_4_RIGHT</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5_LEFT</tspan><tspan x="200" y="264">PLACEHOLDER_SPEC_5_RIGHT</tspan></text>
+<text id="user-specs" visibility="hidden" transform="matrix(1 0 0 1 56 430)" class="st2 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1_LEFT</tspan><tspan x="200" y="0">PLACEHOLDER_SPEC_1_RIGHT</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2_LEFT</tspan><tspan x="200" y="66">PLACEHOLDER_SPEC_2_RIGHT</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3_LEFT</tspan><tspan x="200" y="132">PLACEHOLDER_SPEC_3_RIGHT</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4_LEFT</tspan><tspan x="200" y="198">PLACEHOLDER_SPEC_4_RIGHT</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5_LEFT</tspan><tspan x="200" y="264">PLACEHOLDER_SPEC_5_RIGHT</tspan></text>
 <g transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 895.2937)">
 	<circle cx="256" cy="256" r="215" style="fill:none;stroke:#FFB823;stroke-width:28;"/>
 	<path d="M140,264l76,76l156-156" style="fill:none;stroke:#FFB823;stroke-width:36;stroke-linecap:round;stroke-linejoin:round;"/>
