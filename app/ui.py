@@ -22,10 +22,8 @@ def cancel_keyboard(extra_buttons: list[list[InlineKeyboardButton]] | None = Non
 def examples_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="1️⃣ Пример с 1 фото", callback_data="example_gen_1")],
-            [InlineKeyboardButton(text="2️⃣ Пример с 2 фото", callback_data="example_gen_2")],
-            [InlineKeyboardButton(text="3️⃣ Пример с 3 фото", callback_data="example_gen_3")],
-            [InlineKeyboardButton(text="🧾 Задать данные", callback_data="example_edit_data")],
+            [InlineKeyboardButton(text="🖼 Сгенерировать карточку", callback_data="example_gen")],
+            [InlineKeyboardButton(text="🧾 Задать данные (3 фото)", callback_data="example_edit_data")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]
     )
@@ -33,16 +31,10 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
 
 def example_builder_keyboard(data: dict[str, Any]) -> InlineKeyboardMarkup:
     photo_count = len(data.get("example_photo_file_ids", []))
-    photos_label = f"📷 Фото ({photo_count}/3)"
-    features_ok = "✅" if data.get("example_features") else "❌"
-    description_ok = "✅" if data.get("example_description") else "❌"
-    price_ok = "✅" if data.get("example_price_text") else "❌"
+    photos_label = f"📷 Фото: главное + 2 доп. ({photo_count}/3)"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=photos_label, callback_data="example_edit_photos")],
-            [InlineKeyboardButton(text=f"🔧 Характеристики {features_ok}", callback_data="example_edit_features")],
-            [InlineKeyboardButton(text=f"📝 Описание {description_ok}", callback_data="example_edit_description")],
-            [InlineKeyboardButton(text=f"💳 Название+цена {price_ok}", callback_data="example_edit_price")],
             [InlineKeyboardButton(text="⬅️ К примерам", callback_data="menu_examples")],
         ]
     )

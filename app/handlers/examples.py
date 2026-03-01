@@ -22,8 +22,9 @@ async def example_edit_photos(callback: CallbackQuery, state: FSMContext) -> Non
     await state.set_state(ExampleStates.waiting_for_photos)
     await state.update_data(example_photo_file_ids=[])
     await callback.message.edit_text(
-        "Отправьте 3 фото примера по одной, затем нажмите «Готово с фото».",
+        "Отправьте **3 фото по порядку**: 1) главное, 2) первое доп., 3) второе доп. Затем нажмите «Готово с фото».",
         reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]]),
+        parse_mode="Markdown",
     )
     await callback.answer()
 
@@ -62,33 +63,20 @@ async def example_back_builder(callback: CallbackQuery, state: FSMContext) -> No
     await callback.answer()
 
 
-@router.callback_query(F.data.in_({"example_gen_1", "example_gen_2", "example_gen_3"}))
+@router.callback_query(F.data == "example_gen")
 async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     data = await state.get_data()
-    n_photos = int((callback.data or "example_gen_1").split("_")[-1])
     photos: list[str] = data.get("example_photo_file_ids", [])
-    if len(photos) < n_photos:
-        await callback.answer(f"Сначала задайте 3 фото примера. Нужно минимум {n_photos}.", show_alert=True)
-        return
-    if not data.get("example_features"):
-        await callback.answer("Заполните характеристики примера.", show_alert=True)
-        return
-    if not data.get("example_description"):
-        await callback.answer("Заполните описание примера.", show_alert=True)
-        return
-    if not data.get("example_price_text"):
-        await callback.answer("Заполните название+цену примера.", show_alert=True)
+    if len(photos) != 3:
+        await callback.answer("Задайте ровно 3 фото: главное и два дополнительных.", show_alert=True)
         return
 
-    await state.update_data(photo_file_ids=photos[:n_photos])
+    await state.update_data(photo_file_ids=photos[:3])
     await callback.answer()
     await generate_and_send_card(
         message=callback.message,
         state=state,
         bot=bot,
-        features=str(data.get("example_features", "")),
-        description=str(data.get("example_description", "")),
-        price_text=str(data.get("example_price_text", "")),
         clear_state=False,
     )
     await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())

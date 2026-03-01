@@ -7,12 +7,43 @@ from typing import Any
 from playwright.async_api import async_playwright
 
 from .config import AppConfig
-from .constants import OUTPUT_DIR
+from .constants import OUTPUT_DIR, SVG_TEMPLATE_PATH
 
 
-def to_data_url(photo_bytes: bytes) -> str:
+def to_data_url(photo_bytes: bytes, media_type: str = "image/jpeg") -> str:
     b64 = base64.b64encode(photo_bytes).decode("ascii")
-    return f"data:image/jpeg;base64,{b64}"
+    return f"data:{media_type};base64,{b64}"
+
+
+# В шаблоне SVG: главное фото (большой блок) = IMG_2587.JPG, первое доп. = IMG_2589.JPG, второе доп. = путь к png
+SVG_MAIN_HREF = "IMG_2587.JPG"
+SVG_MINOR1_HREF = "IMG_2589.JPG"
+SVG_MINOR2_HREF = "../../ChatGPT Image 27 февр. 2026 г., 13_59_03.png"
+
+
+def build_svg(main_photo: bytes, minor_photo_1: bytes, minor_photo_2: bytes) -> str:
+    """Собирает SVG из шаблона, подставляя главное и два дополнительных фото (data URL)."""
+    if not SVG_TEMPLATE_PATH.exists():
+        raise FileNotFoundError(f"Шаблон SVG не найден: {SVG_TEMPLATE_PATH}")
+    template = SVG_TEMPLATE_PATH.read_text(encoding="utf-8")
+    main_url = to_data_url(main_photo)
+    minor1_url = to_data_url(minor_photo_1)
+    minor2_url = to_data_url(minor_photo_2)
+    svg = template.replace(f'xlink:href="{SVG_MAIN_HREF}"', f'xlink:href="{main_url}"')
+    svg = svg.replace(f'xlink:href="{SVG_MINOR1_HREF}"', f'xlink:href="{minor1_url}"')
+    svg = svg.replace(f'xlink:href="{SVG_MINOR2_HREF}"', f'xlink:href="{minor2_url}"')
+    return svg
+
+
+async def render_svg_to_png(svg_content: str, output_path: Path, width: int = 1921, height: int = 1081) -> None:
+    """Рендерит SVG в PNG через Playwright (viewBox шаблона 0 0 1921 1081)."""
+    html_page = f"""<!doctype html><html><head><meta charset="UTF-8"/></head><body style="margin:0;background:white;">{svg_content}</body></html>"""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page(viewport={"width": width, "height": height})
+        await page.set_content(html_page, wait_until="networkidle")
+        await page.locator("svg").first.screenshot(path=str(output_path))
+        await browser.close()
 
 
 def build_html(config: dict[str, Any], photos: list[bytes], features: str, description: str, price: str) -> str:
@@ -106,6 +137,22 @@ async def render_png(html_content: str, width: int, height: int, output_path: Pa
         await page.set_content(html_content, wait_until="networkidle")
         await page.locator("#card").screenshot(path=str(output_path))
         await browser.close()
+
+
+async def build_card_from_svg(
+    main_photo: bytes,
+    minor_photo_1: bytes,
+    minor_photo_2: bytes,
+    user_id: int,
+) -> tuple[Path, Path]:
+    """Собирает карточку из шаблона SVG (главное + 2 доп. фото), сохраняет SVG и рендерит PNG."""
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    svg_path = OUTPUT_DIR / f"card_{user_id}_{ts}.svg"
+    png_path = OUTPUT_DIR / f"card_{user_id}_{ts}.png"
+    svg_content = build_svg(main_photo, minor_photo_1, minor_photo_2)
+    svg_path.write_text(svg_content, encoding="utf-8")
+    await render_svg_to_png(svg_content, png_path)
+    return svg_path, png_path
 
 
 async def build_card(

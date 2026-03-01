@@ -4,8 +4,7 @@ from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, Message
 
-from .context import get_app_config
-from .rendering import build_card
+from .rendering import build_card_from_svg
 
 
 async def download_photos(bot: Bot, file_ids: list[str]) -> list[bytes]:
@@ -22,39 +21,35 @@ async def generate_and_send_card(
     message: Message,
     state: FSMContext,
     bot: Bot,
-    features: str,
-    description: str,
-    price_text: str,
     clear_state: bool = True,
 ) -> None:
+    """Собирает карточку по шаблону SVG (главное фото + 2 доп.), отправляет PNG и SVG."""
     data = await state.get_data()
-    photo_file_ids: list[str] = data.get("photo_file_ids", [])
+    photo_file_ids: list[str] = data.get("photo_file_ids", [])  # [main, minor1, minor2]
+    if len(photo_file_ids) != 3:
+        await message.answer("Нужно 3 фото: главное и два дополнительных.")
+        return
     await message.answer("Собираю карточку, подождите...")
     try:
-        config = get_app_config()
-        photo_bytes_list = await download_photos(bot, photo_file_ids)
-        output_file, html_file = await build_card(
-            config=config,
-            photos=photo_bytes_list,
-            features=features,
-            description=description,
-            price=price_text,
+        photos = await download_photos(bot, photo_file_ids)
+        main_b, minor1_b, minor2_b = photos[0], photos[1], photos[2]
+        svg_path, png_path = await build_card_from_svg(
+            main_photo=main_b,
+            minor_photo_1=minor1_b,
+            minor_photo_2=minor2_b,
             user_id=message.from_user.id if message.from_user else 0,
         )
     except Exception as exc:  # noqa: BLE001
         await message.answer(f"Ошибка при создании карточки: {exc}")
         return
 
-    photo_file = BufferedInputFile(output_file.read_bytes(), filename=output_file.name)
-    html_export_file = BufferedInputFile(html_file.read_bytes(), filename=html_file.name)
-    await message.answer_photo(photo_file, caption="Готово. Карточка для Авито создана.")
-    await message.answer_document(
-        html_export_file,
-        caption="HTML-шаблон с путями к изображениям (pic1.jpg, pic2.jpg, pic3.jpg).",
-    )
+    photo_file = BufferedInputFile(png_path.read_bytes(), filename=png_path.name)
+    svg_file = BufferedInputFile(svg_path.read_text(encoding="utf-8").encode("utf-8"), filename=svg_path.name)
+    await message.answer_photo(photo_file, caption="Готово. Карточка по шаблону создана.")
+    await message.answer_document(svg_file, caption="SVG-файл карточки (изображения встроены).")
     try:
-        output_file.unlink(missing_ok=True)
-        html_file.unlink(missing_ok=True)
+        svg_path.unlink(missing_ok=True)
+        png_path.unlink(missing_ok=True)
     except OSError:
         pass
     if clear_state:

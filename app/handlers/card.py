@@ -1,6 +1,6 @@
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from aiogram.types import CallbackQuery, Message
 
 from ..services import generate_and_send_card
 from ..states import CardStates
@@ -13,96 +13,61 @@ router = Router()
 @router.callback_query(F.data == "menu_create_card")
 async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await state.set_state(CardStates.waiting_for_photos)
+    await state.set_state(CardStates.waiting_for_main_photo)
     await state.update_data(photo_file_ids=[])
     await callback.message.edit_text(
-        "Отправьте 1–3 фотографии товара по одной.",
-        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]]),
+        "Отправьте **главное фото** товара (оно будет в большом блоке справа).",
+        reply_markup=cancel_keyboard(),
+        parse_mode="Markdown",
     )
     await callback.answer()
 
 
-@router.callback_query(CardStates.waiting_for_photos, F.data == "photos_done")
-async def photos_done_callback(callback: CallbackQuery, state: FSMContext) -> None:
-    data = await state.get_data()
-    photo_file_ids = data.get("photo_file_ids", [])
-    if len(photo_file_ids) < 1:
-        await callback.answer("Нужно хотя бы одно фото.", show_alert=True)
-        return
-    await state.set_state(CardStates.waiting_for_features)
-    await callback.message.edit_text("Отправьте текстовые ХАРАКТЕРИСТИКИ товара (списком или абзацем).", reply_markup=cancel_keyboard())
-    await callback.answer()
-
-
-@router.message(CardStates.waiting_for_photos, F.photo)
-async def collect_photo_handler(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    photo_file_ids: list[str] = data.get("photo_file_ids", [])
-    if len(photo_file_ids) >= 3:
-        await message.answer(
-            "Достигнут лимит: 3 фото.",
-            reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]]),
-        )
-        return
-    photo_file_ids.append(message.photo[-1].file_id)
-    await state.update_data(photo_file_ids=photo_file_ids)
+@router.message(CardStates.waiting_for_main_photo, F.photo)
+async def main_photo_handler(message: Message, state: FSMContext) -> None:
+    file_id = message.photo[-1].file_id
+    await state.update_data(photo_file_ids=[file_id])
+    await state.set_state(CardStates.waiting_for_minor_photo_1)
     await message.answer(
-        f"Фото добавлено: {len(photo_file_ids)}/3",
-        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")]]),
+        "Главное фото принято. Отправьте **первое дополнительное фото** (малый блок слева внизу).",
+        reply_markup=cancel_keyboard(),
+        parse_mode="Markdown",
     )
 
 
-@router.message(CardStates.waiting_for_photos)
-async def wrong_photos_input_handler(message: Message) -> None:
-    await message.answer("Отправьте фото или нажмите кнопку «Готово».")
+@router.message(CardStates.waiting_for_main_photo)
+async def wrong_main_photo(message: Message) -> None:
+    await message.answer("Отправьте одно фото (главное изображение товара).")
 
 
-@router.message(CardStates.waiting_for_features, F.text)
-async def features_handler(message: Message, state: FSMContext) -> None:
-    value = message.text.strip()
-    if not value:
-        await message.answer("Характеристики пустые. Отправьте текст.")
-        return
-    await state.update_data(features=value)
-    await state.set_state(CardStates.waiting_for_description)
-    await message.answer("Теперь отправьте ОПИСАНИЕ товара.", reply_markup=cancel_keyboard())
-
-
-@router.message(CardStates.waiting_for_description, F.text)
-async def description_handler(message: Message, state: FSMContext) -> None:
-    value = message.text.strip()
-    if not value:
-        await message.answer("Описание пустое. Отправьте текст.")
-        return
-    await state.update_data(description=value)
-    await state.set_state(CardStates.waiting_for_price)
-    await message.answer("Отправьте название и цену.", reply_markup=cancel_keyboard())
-
-
-@router.message(CardStates.waiting_for_description)
-async def wrong_description_input_handler(message: Message) -> None:
-    await message.answer("Отправьте описание обычным текстом.")
-
-
-@router.message(CardStates.waiting_for_price, F.text)
-async def price_handler(message: Message, state: FSMContext, bot: Bot) -> None:
-    price_text = message.text.strip()
-    if not price_text:
-        await message.answer("Цена пустая. Отправьте текст.")
-        return
+@router.message(CardStates.waiting_for_minor_photo_1, F.photo)
+async def minor_photo_1_handler(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    await generate_and_send_card(
-        message=message,
-        state=state,
-        bot=bot,
-        features=str(data.get("features", "")),
-        description=str(data.get("description", "")),
-        price_text=price_text,
-        clear_state=True,
+    ids: list[str] = list(data.get("photo_file_ids", []))
+    ids.append(message.photo[-1].file_id)
+    await state.update_data(photo_file_ids=ids)
+    await state.set_state(CardStates.waiting_for_minor_photo_2)
+    await message.answer(
+        "Первое доп. фото принято. Отправьте **второе дополнительное фото** (второй малый блок слева внизу).",
+        reply_markup=cancel_keyboard(),
+        parse_mode="Markdown",
     )
 
 
-@router.message(CardStates.waiting_for_price)
-async def wrong_price_input_handler(message: Message) -> None:
-    await message.answer("Отправьте цену текстом.")
+@router.message(CardStates.waiting_for_minor_photo_1)
+async def wrong_minor_photo_1(message: Message) -> None:
+    await message.answer("Отправьте фото (первое дополнительное).")
 
+
+@router.message(CardStates.waiting_for_minor_photo_2, F.photo)
+async def minor_photo_2_handler(message: Message, state: FSMContext, bot: Bot) -> None:
+    data = await state.get_data()
+    ids: list[str] = list(data.get("photo_file_ids", []))
+    ids.append(message.photo[-1].file_id)
+    await state.update_data(photo_file_ids=ids)
+    await generate_and_send_card(message=message, state=state, bot=bot, clear_state=True)
+
+
+@router.message(CardStates.waiting_for_minor_photo_2)
+async def wrong_minor_photo_2(message: Message) -> None:
+    await message.answer("Отправьте фото (второе дополнительное).")
