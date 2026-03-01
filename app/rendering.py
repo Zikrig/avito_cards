@@ -76,6 +76,7 @@ def build_svg(
     svg = svg.replace("69 990 ₽ ", _esc(price or "69 990 ₽ "))
 
     # Характеристики — пары «левая часть — правая часть» (до 5 пар); разделитель «—» или « - »
+    has_specs = any(str(item).strip() for item in specs[:5]) if specs else False
     for i in range(5):
         left_val = ""
         right_val = ""
@@ -91,6 +92,10 @@ def build_svg(
                 left_val = _esc(raw)
         svg = svg.replace(f"PLACEHOLDER_SPEC_{i + 1}_LEFT", left_val)
         svg = svg.replace(f"PLACEHOLDER_SPEC_{i + 1}_RIGHT", right_val)
+
+    if has_specs:
+        svg = svg.replace('id="original-specs-paths"', 'id="original-specs-paths" visibility="hidden"')
+        svg = svg.replace('id="user-specs" visibility="hidden"', 'id="user-specs"')
 
     return svg
 

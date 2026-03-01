@@ -133,7 +133,7 @@
 <text transform="matrix(1 0 0 1 53.0739 124.8789)"><tspan x="0" y="0" class="st10 st11">Msi Bravo 15.6</tspan><tspan x="0" y="64" class="st10 st12">   </tspan><tspan x="24.8" y="64" class="st13 st10 st12">RTX 4060 Ryzen 7 7535HS</tspan></text>
 <rect x="1479.7" y="776.7" class="st1" width="426.1" height="197.2"/>
 <text transform="matrix(1 0 0 1 1479.6936 848.0522)" class="st13 st10 st14">69 990 ₽ </text>
-<g id="original-specs-paths">
+<g>
 	<g>
 		<g>
 			<path d="M74.7,423.3c2.6,0,5.7,0.8,7.5,2.8l-0.9,1c-1.6-1.6-4-2.5-6.6-2.5c-6,0-11.7,5.4-11.7,12.1c0,4.7,3.1,8.1,7.9,8.1
@@ -350,15 +350,8 @@
 	<path class="st16" d="M174.2,621.1c0,8,0,16,0,24"/>
 	<path class="st16" d="M174.2,687c0,8,0,16,0,24"/>
 </g>
-<text id="user-specs" visibility="hidden" transform="matrix(1 0 0 1 56 430)" class="st10 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1_LEFT</tspan><tspan x="200" y="0">PLACEHOLDER_SPEC_1_RIGHT</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2_LEFT</tspan><tspan x="200" y="66">PLACEHOLDER_SPEC_2_RIGHT</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3_LEFT</tspan><tspan x="200" y="132">PLACEHOLDER_SPEC_3_RIGHT</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4_LEFT</tspan><tspan x="200" y="198">PLACEHOLDER_SPEC_4_RIGHT</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5_LEFT</tspan><tspan x="200" y="264">PLACEHOLDER_SPEC_5_RIGHT</tspan></text>
-<g transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 895.2937)">
-	<circle cx="256" cy="256" r="215" style="fill:none;stroke:#FFB823;stroke-width:28;"/>
-	<path d="M140,264l76,76l156-156" style="fill:none;stroke:#FFB823;stroke-width:36;stroke-linecap:round;stroke-linejoin:round;"/>
-</g>
-<g transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 946.9109)">
-	<rect x="64" y="160" width="224" height="118" style="fill:none;stroke:#FFB823;stroke-width:24;"/>
-	<path d="M288,184h72l56,58v36h-128V184z" style="fill:none;stroke:#FFB823;stroke-width:24;stroke-linejoin:round;"/>
-	<circle cx="150" cy="312" r="32" style="fill:none;stroke:#FFB823;stroke-width:20;"/>
-	<circle cx="344" cy="312" r="32" style="fill:none;stroke:#FFB823;stroke-width:20;"/>
-</g>
+<image style="overflow:visible;" width="512" height="512" xlink:href="../../mark_10093833.png"  transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 895.2937)">
+</image>
+<image style="overflow:visible;" width="512" height="512" xlink:href="../../delivery-truck_3607751.png"  transform="matrix(8.528169e-02 0 0 8.528169e-02 1415.5454 946.9109)">
+</image>
 </svg>
