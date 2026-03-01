@@ -133,6 +133,7 @@
 <text transform="matrix(1 0 0 1 53.0739 124.8789)"><tspan x="0" y="0" class="st10 st11">Msi Bravo 15.6</tspan><tspan x="0" y="64" class="st10 st12">   </tspan><tspan x="24.8" y="64" class="st13 st10 st12">RTX 4060 Ryzen 7 7535HS</tspan></text>
 <rect x="1479.7" y="776.7" class="st1" width="426.1" height="197.2"/>
 <text transform="matrix(1 0 0 1 1479.6936 848.0522)" class="st13 st10 st14">69 990 ₽ </text>
+<text id="user-specs" transform="matrix(1 0 0 1 56 430)" class="st10 st12" fill="#161615"><tspan x="0" y="0">PLACEHOLDER_SPEC_1</tspan><tspan x="0" y="66">PLACEHOLDER_SPEC_2</tspan><tspan x="0" y="132">PLACEHOLDER_SPEC_3</tspan><tspan x="0" y="198">PLACEHOLDER_SPEC_4</tspan><tspan x="0" y="264">PLACEHOLDER_SPEC_5</tspan></text>
 <g>
 	<g>
 		<g>

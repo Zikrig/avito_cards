@@ -7,7 +7,7 @@ from typing import Any
 from playwright.async_api import async_playwright
 
 from .config import AppConfig
-from .constants import OUTPUT_DIR, SVG_TEMPLATE_PATH
+from .constants import LOGO_DEFAULT_PATH, OUTPUT_DIR, SVG_TEMPLATE_PATH
 
 
 def to_data_url(photo_bytes: bytes, media_type: str = "image/jpeg") -> str:
@@ -19,19 +19,67 @@ def to_data_url(photo_bytes: bytes, media_type: str = "image/jpeg") -> str:
 SVG_MAIN_HREF = "IMG_2587.JPG"
 SVG_MINOR1_HREF = "IMG_2589.JPG"
 SVG_MINOR2_HREF = "../../ChatGPT Image 27 февр. 2026 г., 13_59_03.png"
+SVG_LOGO_HREF = "C:\\Users\\user\\Downloads\\Дополнительный.png"
 
 
-def build_svg(main_photo: bytes, minor_photo_1: bytes, minor_photo_2: bytes) -> str:
-    """Собирает SVG из шаблона, подставляя главное и два дополнительных фото (data URL)."""
+def _esc(s: str) -> str:
+    """Экранирует текст для вставки в SVG/XML."""
+    return html.escape(s or "", quote=True)
+
+
+def build_svg(
+    main_photo: bytes,
+    minor_photo_1: bytes,
+    minor_photo_2: bytes,
+    logo_bytes: bytes | None,
+    title_main: str,
+    title_sub: str,
+    text_minor: str,
+    text_bottom_line1: str,
+    text_bottom_line2: str,
+    price: str,
+    specs: list[str],
+) -> str:
+    """Собирает SVG из шаблона: 3 фото, логотип, все тексты (название главное/минорное, цена, до 5 характеристик)."""
     if not SVG_TEMPLATE_PATH.exists():
         raise FileNotFoundError(f"Шаблон SVG не найден: {SVG_TEMPLATE_PATH}")
     template = SVG_TEMPLATE_PATH.read_text(encoding="utf-8")
+
     main_url = to_data_url(main_photo)
     minor1_url = to_data_url(minor_photo_1)
     minor2_url = to_data_url(minor_photo_2)
     svg = template.replace(f'xlink:href="{SVG_MAIN_HREF}"', f'xlink:href="{main_url}"')
     svg = svg.replace(f'xlink:href="{SVG_MINOR1_HREF}"', f'xlink:href="{minor1_url}"')
     svg = svg.replace(f'xlink:href="{SVG_MINOR2_HREF}"', f'xlink:href="{minor2_url}"')
+
+    if logo_bytes is not None:
+        logo_url = to_data_url(logo_bytes, "image/png")
+    elif LOGO_DEFAULT_PATH.exists():
+        logo_url = to_data_url(LOGO_DEFAULT_PATH.read_bytes(), "image/png")
+    else:
+        logo_url = None
+    if logo_url:
+        svg = svg.replace(f'xlink:href="{SVG_LOGO_HREF}"', f'xlink:href="{logo_url}"')
+
+    minor_lines = (text_minor or "").strip().split("\n")
+    minor_1 = _esc((minor_lines[0] if len(minor_lines) > 0 else "") or "Это решение подойдёт не только ")
+    minor_2 = _esc((minor_lines[1] if len(minor_lines) > 1 else "") or "геймерам, но и дизайнерам, стримерам,  ")
+    minor_3 = _esc((minor_lines[2] if len(minor_lines) > 2 else "") or "3D-моделлерам и видеомонтажёрам.")
+
+    svg = svg.replace("Msi Bravo 15.6", _esc(title_main or "Msi Bravo 15.6"))
+    svg = svg.replace("RTX 4060 Ryzen 7 7535HS", _esc(title_sub or "RTX 4060 Ryzen 7 7535HS"))
+    svg = svg.replace("Это решение подойдёт не только ", minor_1)
+    svg = svg.replace("геймерам, но и дизайнерам, стримерам,  ", minor_2)
+    svg = svg.replace("3D-моделлерам и видеомонтажёрам.", minor_3)
+    svg = svg.replace("Гарантия до 12 месяцев", _esc(text_bottom_line1 or "Гарантия до 12 месяцев"))
+    svg = svg.replace("Доставка или самовывоз", _esc(text_bottom_line2 or "Доставка или самовывоз"))
+    svg = svg.replace("69 990 ₽ ", _esc(price or "69 990 ₽ "))
+
+    for i in range(5):
+        placeholder = f"PLACEHOLDER_SPEC_{i + 1}"
+        value = _esc(specs[i]) if i < len(specs) and specs[i] else ""
+        svg = svg.replace(placeholder, value)
+
     return svg
 
 
@@ -144,12 +192,33 @@ async def build_card_from_svg(
     minor_photo_1: bytes,
     minor_photo_2: bytes,
     user_id: int,
+    *,
+    logo_bytes: bytes | None = None,
+    title_main: str = "",
+    title_sub: str = "",
+    text_minor: str = "",
+    text_bottom_line1: str = "",
+    text_bottom_line2: str = "",
+    price: str = "",
+    specs: list[str] | None = None,
 ) -> tuple[Path, Path]:
-    """Собирает карточку из шаблона SVG (главное + 2 доп. фото), сохраняет SVG и рендерит PNG."""
+    """Собирает карточку из шаблона SVG (3 фото, логотип, все тексты), сохраняет SVG и рендерит PNG."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     svg_path = OUTPUT_DIR / f"card_{user_id}_{ts}.svg"
     png_path = OUTPUT_DIR / f"card_{user_id}_{ts}.png"
-    svg_content = build_svg(main_photo, minor_photo_1, minor_photo_2)
+    svg_content = build_svg(
+        main_photo,
+        minor_photo_1,
+        minor_photo_2,
+        logo_bytes,
+        title_main,
+        title_sub,
+        text_minor,
+        text_bottom_line1,
+        text_bottom_line2,
+        price,
+        specs or [],
+    )
     svg_path.write_text(svg_content, encoding="utf-8")
     await render_svg_to_png(svg_content, png_path)
     return svg_path, png_path

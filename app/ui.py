@@ -32,9 +32,12 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
 def example_builder_keyboard(data: dict[str, Any]) -> InlineKeyboardMarkup:
     photo_count = len(data.get("example_photo_file_ids", []))
     photos_label = f"📷 Фото: главное + 2 доп. ({photo_count}/3)"
+    has_texts = bool(data.get("title_main"))
+    texts_label = "📝 Заполнить тексты (название, цена, характеристики)" + (" ✅" if has_texts else "")
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=photos_label, callback_data="example_edit_photos")],
+            [InlineKeyboardButton(text=texts_label, callback_data="example_edit_texts")],
             [InlineKeyboardButton(text="⬅️ К примерам", callback_data="menu_examples")],
         ]
     )

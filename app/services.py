@@ -23,7 +23,7 @@ async def generate_and_send_card(
     bot: Bot,
     clear_state: bool = True,
 ) -> None:
-    """Собирает карточку по шаблону SVG (главное фото + 2 доп.), отправляет PNG и SVG."""
+    """Собирает карточку по шаблону SVG (3 фото, логотип по умолчанию, все тексты), отправляет PNG и SVG."""
     data = await state.get_data()
     photo_file_ids: list[str] = data.get("photo_file_ids", [])  # [main, minor1, minor2]
     if len(photo_file_ids) != 3:
@@ -34,10 +34,18 @@ async def generate_and_send_card(
         photos = await download_photos(bot, photo_file_ids)
         main_b, minor1_b, minor2_b = photos[0], photos[1], photos[2]
         svg_path, png_path = await build_card_from_svg(
-            main_photo=main_b,
-            minor_photo_1=minor1_b,
-            minor_photo_2=minor2_b,
-            user_id=message.from_user.id if message.from_user else 0,
+            main_b,
+            minor1_b,
+            minor2_b,
+            message.from_user.id if message.from_user else 0,
+            logo_bytes=None,
+            title_main=str(data.get("title_main", "")),
+            title_sub=str(data.get("title_sub", "")),
+            text_minor=str(data.get("text_minor", "")),
+            text_bottom_line1=str(data.get("text_bottom_line1", "")),
+            text_bottom_line2=str(data.get("text_bottom_line2", "")),
+            price=str(data.get("price", "")),
+            specs=list(data.get("spec_list", [])),
         )
     except Exception as exc:  # noqa: BLE001
         await message.answer(f"Ошибка при создании карточки: {exc}")

@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
 from ..services import generate_and_send_card
-from ..states import ExampleStates
+from ..states import CardStates, ExampleStates
 from ..ui import cancel_keyboard, example_builder_keyboard, examples_menu_keyboard
 
 
@@ -50,6 +50,24 @@ async def example_edit_price(callback: CallbackQuery, state: FSMContext) -> None
     await callback.answer()
 
 
+@router.callback_query(F.data == "example_edit_texts")
+async def example_edit_texts(callback: CallbackQuery, state: FSMContext) -> None:
+    """Запуск заполнения текстов примера (те же шаги, что и при создании карточки)."""
+    data = await state.get_data()
+    photo_ids: list[str] = data.get("example_photo_file_ids", [])
+    if len(photo_ids) != 3:
+        await callback.answer("Сначала задайте 3 фото: главное и два дополнительных.", show_alert=True)
+        return
+    await state.update_data(photo_file_ids=photo_ids[:3], from_example=True)
+    await state.set_state(CardStates.waiting_for_title_main)
+    await callback.message.edit_text(
+        "Введите **название главное** (одной строкой).\n_Пример: Msi Bravo 15.6_",
+        reply_markup=cancel_keyboard(),
+        parse_mode="Markdown",
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data == "example_back_builder")
 @router.callback_query(F.data == "example_photos_done")
 async def example_back_builder(callback: CallbackQuery, state: FSMContext) -> None:
@@ -69,6 +87,10 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
     photos: list[str] = data.get("example_photo_file_ids", [])
     if len(photos) != 3:
         await callback.answer("Задайте ровно 3 фото: главное и два дополнительных.", show_alert=True)
+        return
+    # Должны быть заполнены тексты (через «Заполнить тексты»)
+    if not data.get("title_main"):
+        await callback.answer("Сначала нажмите «Заполнить тексты» и введите все данные.", show_alert=True)
         return
 
     await state.update_data(photo_file_ids=photos[:3])
