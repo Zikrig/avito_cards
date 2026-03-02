@@ -5,4 +5,6 @@ services:
     volumes:
       - ./config.json:/app/config.json
       - ./output:/app/output
+      # Примеры (3 фото по file_id, логотип, тексты) — чтобы не терялись после пересборки
+      - ./data:/app/data
     restart: unless-stopped
