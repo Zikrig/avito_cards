@@ -1,10 +1,10 @@
 import json
 from typing import Any
 
-from .constants import BASE_DIR
+from .constants import DATA_DIR
 
 
-EXAMPLES_PATH = BASE_DIR / "examples.json"
+EXAMPLES_PATH = DATA_DIR / "examples.json"
 
 
 def load_examples() -> dict[str, Any]:
