@@ -81,8 +81,8 @@ def _esc(s: str) -> str:
     return html.escape(s or "", quote=True)
 
 
-def _wrap_minor_text(text: str, max_chars: int = 38, max_lines: int = 3) -> list[str]:
-    """Делит описание на 3 строки, чтобы не наезжало на фото."""
+def _wrap_minor_text(text: str, max_chars: int = 60, max_lines: int = 3) -> list[str]:
+    """Делит описание на 3 строки без обрезки и многоточия."""
     src = " ".join((text or "").replace("\r", "\n").split())
     if not src:
         return []
@@ -96,16 +96,12 @@ def _wrap_minor_text(text: str, max_chars: int = 38, max_lines: int = 3) -> list
             continue
         lines.append(current if current else word[:max_chars])
         current = word if len(word) <= max_chars else word[max_chars:]
-        if len(lines) >= max_lines - 1:
+        if len(lines) >= max_lines:
             break
     if len(lines) < max_lines and current:
         lines.append(current)
     if len(lines) > max_lines:
         lines = lines[:max_lines]
-    if len(lines) == max_lines and any(len(w) for w in words):
-        used = " ".join(lines)
-        if len(src) > len(used) and len(lines[-1]) > 1:
-            lines[-1] = lines[-1].rstrip(". ") + "..."
     return lines
 
 

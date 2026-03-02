@@ -175,7 +175,12 @@ async def wrong_title_sub(message: Message) -> None:
 
 @router.message(CardStates.waiting_for_text_minor, F.text)
 async def text_minor_handler(message: Message, state: FSMContext) -> None:
-    await state.update_data(text_minor=message.text.strip())
+    text = message.text.strip()
+    await state.update_data(text_minor=text)
+    if len(text) >= 50:
+        await message.answer(
+            "⚠ Описание длинное (50+ символов). На карточке отображаются только первые 3 строки."
+        )
     await state.set_state(CardStates.waiting_for_text_bottom_line1)
     await message.answer(
         f"Введите **первую строку блока справа внизу**.\n_Пример: {EXAMPLE_TEXT_BOTTOM_1}_",
