@@ -128,7 +128,11 @@ def build_svg(
     template_path = SVG_TEMPLATES.get(int(template_id) if template_id in SVG_TEMPLATES else 1, SVG_TEMPLATE_PATH)
     if not template_path.exists():
         raise FileNotFoundError(f"Шаблон SVG не найден: {template_path}")
-    template = template_path.read_text(encoding="utf-8")
+    # Шаблоны должны быть в UTF-8, но на всякий случай поддерживаем CP1251 (частые экспорты из Illustrator на Windows).
+    try:
+        template = template_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        template = template_path.read_text(encoding="cp1251")
 
     main_url = to_data_url(main_photo)
     minor1_url = to_data_url(minor_photo_1)
