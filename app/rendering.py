@@ -157,17 +157,27 @@ def build_svg(
     svg = svg.replace("Доставка или самовывоз", _esc(text_bottom_line2 or "Доставка или самовывоз"))
     svg = svg.replace("69 990 ₽ ", _esc(price or "69 990 ₽ "))
 
-    # Характеристики — до 5 строк. Раньше делились на «левая часть — правая часть»,
-    # теперь выводим как один текст без большого горизонтального отступа.
+    # Характеристики — пары «левая часть — правая часть» (до 5 пар).
+    # Пользователь может вводить с тире, но на карточке тире не показываем:
+    # колонка слева = «ключ», колонка справа = «значение».
     has_specs = any(str(item).strip() for item in specs[:5]) if specs else False
     for i in range(5):
         left_val = ""
+        right_val = ""
         if i < len(specs) and specs[i]:
             raw = str(specs[i]).strip()
-            # Показываем строку как есть (с разделителем), без разнесения на колонки.
-            left_val = _esc(raw)
+            for sep in ("—", " - ", " -", "- ", "-"):
+                if sep in raw:
+                    parts = raw.split(sep, 1)
+                    # Тире выкидываем из отображения: только левая и правая части.
+                    left_val = _esc(parts[0].strip()) if parts else ""
+                    right_val = _esc(parts[1].strip()) if len(parts) > 1 else ""
+                    break
+            else:
+                # Если тире нет — показываем строку целиком в левой колонке.
+                left_val = _esc(raw)
         svg = svg.replace(f"PLACEHOLDER_SPEC_{i + 1}_LEFT", left_val)
-        svg = svg.replace(f"PLACEHOLDER_SPEC_{i + 1}_RIGHT", "")
+        svg = svg.replace(f"PLACEHOLDER_SPEC_{i + 1}_RIGHT", right_val)
 
     if has_specs:
         svg = svg.replace('id="original-specs-paths"', 'id="original-specs-paths" visibility="hidden"')
