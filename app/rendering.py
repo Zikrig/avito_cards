@@ -81,7 +81,7 @@ def _esc(s: str) -> str:
     return html.escape(s or "", quote=True)
 
 
-def _wrap_minor_text(text: str, max_chars: int = 60, max_lines: int = 3) -> list[str]:
+def _wrap_minor_text(text: str, max_chars: int = 40, max_lines: int = 3) -> list[str]:
     """Делит описание на 3 строки без обрезки и многоточия."""
     src = " ".join((text or "").replace("\r", "\n").split())
     if not src:
@@ -103,6 +103,11 @@ def _wrap_minor_text(text: str, max_chars: int = 60, max_lines: int = 3) -> list
     if len(lines) > max_lines:
         lines = lines[:max_lines]
     return lines
+
+
+DEFAULT_MINOR_1 = "Это решение подойдёт не только геймерам,"
+DEFAULT_MINOR_2 = "но и дизайнерам, стримерам, 3D-моделлерам"
+DEFAULT_MINOR_3 = "и видеомонтажёрам."
 
 
 def build_svg(
@@ -144,15 +149,15 @@ def build_svg(
         minor_lines = [line.strip() for line in minor_input.split("\n") if line.strip()]
     else:
         minor_lines = _wrap_minor_text(minor_input)
-    minor_1 = _esc((minor_lines[0] if len(minor_lines) > 0 else "") or "Это решение подойдёт не только ")
-    minor_2 = _esc((minor_lines[1] if len(minor_lines) > 1 else "") or "геймерам, но и дизайнерам, стримерам,  ")
-    minor_3 = _esc((minor_lines[2] if len(minor_lines) > 2 else "") or "3D-моделлерам и видеомонтажёрам.")
+    minor_1 = _esc((minor_lines[0] if len(minor_lines) > 0 else "") or DEFAULT_MINOR_1)
+    minor_2 = _esc((minor_lines[1] if len(minor_lines) > 1 else "") or DEFAULT_MINOR_2)
+    minor_3 = _esc((minor_lines[2] if len(minor_lines) > 2 else "") or DEFAULT_MINOR_3)
 
     svg = svg.replace("Msi Bravo 15.6", _esc(title_main or "Msi Bravo 15.6"))
     svg = svg.replace("RTX 4060 Ryzen 7 7535HS", _esc(title_sub or "RTX 4060 Ryzen 7 7535HS"))
-    svg = svg.replace("Это решение подойдёт не только ", minor_1)
-    svg = svg.replace("геймерам, но и дизайнерам, стримерам,  ", minor_2)
-    svg = svg.replace("3D-моделлерам и видеомонтажёрам.", minor_3)
+    svg = svg.replace(DEFAULT_MINOR_1, minor_1)
+    svg = svg.replace(DEFAULT_MINOR_2, minor_2)
+    svg = svg.replace(DEFAULT_MINOR_3, minor_3)
     svg = svg.replace("Гарантия до 12 месяцев", _esc(text_bottom_line1 or "Гарантия до 12 месяцев"))
     svg = svg.replace("Доставка или самовывоз", _esc(text_bottom_line2 or "Доставка или самовывоз"))
     svg = svg.replace("69 990 ₽ ", _esc(price or "69 990 ₽ "))
