@@ -35,11 +35,11 @@
 <rect x="0.5" y="0.5" class="st0" width="1920" height="1080"/>
 <g>
 	<rect x="56.1" y="254.5" class="st1" width="666.8" height="338.7"/>
-	<text transform="matrix(1 0 0 1 56.0803 281.6684)"><tspan x="0" y="0" class="st2 st3">Это решение подойдёт не только </tspan><tspan x="0" y="38.4" class="st2 st3">геймерам, но и дизайнерам, стримерам,  </tspan><tspan x="0" y="76.8" class="st2 st3">3D-моделлерам и видеомонтажёрам.</tspan></text>
+	<text transform="matrix(1 0 0 1 56.0803 281.6684)"><tspan x="0" y="0" class="st2 st3">##############################</tspan><tspan x="0" y="38.4" class="st2 st3">######################################</tspan><tspan x="0" y="76.8" class="st2 st3">################################</tspan></text>
 </g>
 <g>
 	<rect x="1483.5" y="902.6" class="st1" width="666.8" height="338.7"/>
-	<text transform="matrix(1 0 0 1 1483.4734 929.8281)"><tspan x="0" y="0" class="st2 st3">Гарантия до 12 месяцев</tspan><tspan x="0" y="54" class="st2 st3">Доставка или самовывоз</tspan></text>
+	<text transform="matrix(1 0 0 1 1483.4734 929.8281)"><tspan x="0" y="0" class="st2 st3">#####################</tspan><tspan x="0" y="54" class="st2 st3">#####################</tspan></text>
 </g>
 <g>
 	<g>
@@ -130,11 +130,12 @@
 	c-12,0.1-22.2,8.9-24.1,20.8C1384.4,816.5,1379.1,849.9,1373.9,883.3z"/>
 <path class="st9" d="M1351.1,1022.2c12.8-79.7,25.7-159.5,38.5-239.2"/>
 <rect x="53.1" y="62" class="st1" width="581.7" height="197.2"/>
-<text transform="matrix(1 0 0 1 53.0739 124.8789)"><tspan x="0" y="0" class="st10 st11">Msi Bravo 15.6</tspan><tspan x="0" y="64" class="st10 st12">   </tspan><tspan x="24.8" y="64" class="st13 st10 st12">RTX 4060 Ryzen 7 7535HS</tspan></text>
+<text transform="matrix(1 0 0 1 53.0739 124.8789)"><tspan x="0" y="0" class="st10 st11">##############</tspan><tspan x="0" y="64" class="st10 st12">   </tspan><tspan x="24.8" y="64" class="st13 st10 st12">########################</tspan></text>
 <rect x="1479.7" y="776.7" class="st1" width="426.1" height="197.2"/>
 <text transform="matrix(1 0 0 1 1479.6936 848.0522)" class="st13 st10 st14">######### </text>
 <g>
-	<g>
+	<text id="specs-masked" transform="matrix(1 0 0 1 56 430)" class="st2 st12" fill="#161615"><tspan x="0" y="0">###</tspan><tspan x="185" y="0">###############</tspan><tspan x="0" y="66">###</tspan><tspan x="185" y="66">###############</tspan><tspan x="0" y="132">###</tspan><tspan x="185" y="132">###############</tspan><tspan x="0" y="198">###</tspan><tspan x="185" y="198">###############</tspan><tspan x="0" y="264">###</tspan><tspan x="185" y="264">###############</tspan></text>
+	<g visibility="hidden">
 		<g>
 			<path d="M74.7,423.3c2.6,0,5.7,0.8,7.5,2.8l-0.9,1c-1.6-1.6-4-2.5-6.6-2.5c-6,0-11.7,5.4-11.7,12.1c0,4.7,3.1,8.1,7.9,8.1
 				c2.8,0,5.9-1.1,8-3l0.8,1c-2.1,1.9-5.7,3.2-8.8,3.2c-5.8,0-9.3-4-9.3-9.4C61.6,429.3,68,423.3,74.7,423.3z"/>
@@ -331,6 +332,7 @@
 			<path d="M435.5,621.8h11.1l-0.3,1.3h-9.8l-4.1,20.8h-1.4L435.5,621.8z"/>
 			<path d="M445.9,628.1h1.3l-2.8,14.5h9.8l2.8-14.5h1.3l-2.8,14.5h2.2l-1,5h-1.3l0.8-3.8h-13.3L445.9,628.1z"/>
 		</g>
+	</g>
 	</g>
 	<g>
 		<path class="st15" d="M56.1,468.2c132.5-0.5,281.1-0.5,413.6,0C337.2,468.8,188.6,468.8,56.1,468.2L56.1,468.2z"/>

@@ -58,10 +58,20 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
             return
         from_example = data.get("from_example")
         await callback.answer()
+        # При генерации из примера не чистим данные примера, чтобы не приходилось заново задавать фото и тексты.
         await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
         if from_example:
-            await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
+            preserved_keys = (
+                "example_photo_file_ids",
+                "example_features",
+                "example_description",
+                "example_price_text",
+            )
+            preserved = {k: v for k, v in data.items() if k in preserved_keys}
             await state.clear()
+            if preserved:
+                await state.update_data(**preserved)
+            await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
         return
 
     defaults = {
