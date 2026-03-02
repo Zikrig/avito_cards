@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, Message
 from ..example_store import save_examples
 from ..services import generate_and_send_card
 from ..states import CardStates
-from ..ui import cancel_keyboard, examples_menu_keyboard
+from ..ui import cancel_keyboard, examples_menu_keyboard, template_select_keyboard
 
 # Примеры текстов с текущей страницы шаблона (для подсказок в боте)
 EXAMPLE_TITLE_MAIN = "Msi Bravo 15.6"
@@ -28,8 +28,23 @@ async def _save_example_if_needed(state: FSMContext) -> None:
 @router.callback_query(F.data == "menu_create_card")
 async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
+    await state.set_state(CardStates.waiting_for_template)
+    await callback.message.edit_text(
+        "Выберите вариант макета карточки:",
+        reply_markup=template_select_keyboard(prefix="card_tpl"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("card_tpl:"))
+async def card_template_select(callback: CallbackQuery, state: FSMContext) -> None:
+    """Выбор варианта SVG-шаблона перед созданием карточки."""
+    raw = (callback.data or "").removeprefix("card_tpl:")
+    if raw not in {"1", "2", "3"}:
+        await callback.answer()
+        return
+    await state.update_data(template_id=int(raw), photo_file_ids=[])
     await state.set_state(CardStates.waiting_for_main_photo)
-    await state.update_data(photo_file_ids=[])
     await callback.message.edit_text(
         "Отправьте **главное фото** товара (оно будет в большом блоке справа).",
         reply_markup=cancel_keyboard(),
@@ -83,24 +98,34 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         return
 
     defaults = {
-        "title_main": ({"title_main": EXAMPLE_TITLE_MAIN}, CardStates.waiting_for_title_sub,
-                       f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
-                       "card_default:title_sub"),
-        "title_sub": ({"title_sub": EXAMPLE_TITLE_SUB}, CardStates.waiting_for_text_minor,
-                      f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
-                      "card_default:text_minor"),
-        "text_minor": ({"text_minor": EXAMPLE_TEXT_MINOR}, CardStates.waiting_for_text_bottom_line1,
-                       f"Введите **первую строку блока справа внизу**.\n_Пример: {EXAMPLE_TEXT_BOTTOM_1}_",
-                       "card_default:text_bottom_line1"),
-        "text_bottom_line1": ({"text_bottom_line1": EXAMPLE_TEXT_BOTTOM_1}, CardStates.waiting_for_text_bottom_line2,
-                              f"Введите **вторую строку блока справа внизу**.\n_Пример: {EXAMPLE_TEXT_BOTTOM_2}_",
-                              "card_default:text_bottom_line2"),
-        "text_bottom_line2": ({"text_bottom_line2": EXAMPLE_TEXT_BOTTOM_2}, CardStates.waiting_for_price,
-                              f"Введите **цену** (как на карточке).\n_Пример: {EXAMPLE_PRICE}_",
-                              "card_default:price"),
-        "price": ({"price": EXAMPLE_PRICE, "spec_list": []}, CardStates.waiting_for_spec,
-                  "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
-                  "card_default:spec_done"),
+        "title_main": (
+            {"title_main": EXAMPLE_TITLE_MAIN},
+            CardStates.waiting_for_title_sub,
+            f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
+            "card_default:title_sub",
+        ),
+        "title_sub": (
+            {"title_sub": EXAMPLE_TITLE_SUB},
+            CardStates.waiting_for_text_minor,
+            f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
+            "card_default:text_minor",
+        ),
+        "text_minor": (
+            {
+                "text_minor": EXAMPLE_TEXT_MINOR,
+                "text_bottom_line1": EXAMPLE_TEXT_BOTTOM_1,
+                "text_bottom_line2": EXAMPLE_TEXT_BOTTOM_2,
+            },
+            CardStates.waiting_for_price,
+            f"Введите **цену** (как на карточке).\n_Пример: {EXAMPLE_PRICE}_",
+            "card_default:price",
+        ),
+        "price": (
+            {"price": EXAMPLE_PRICE, "spec_list": []},
+            CardStates.waiting_for_spec,
+            "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
+            "card_default:spec_done",
+        ),
     }
     if step not in defaults:
         await callback.answer()
@@ -197,16 +222,20 @@ async def wrong_title_sub(message: Message) -> None:
 @router.message(CardStates.waiting_for_text_minor, F.text)
 async def text_minor_handler(message: Message, state: FSMContext) -> None:
     text = message.text.strip()
-    await state.update_data(text_minor=text)
+    await state.update_data(
+        text_minor=text,
+        text_bottom_line1=EXAMPLE_TEXT_BOTTOM_1,
+        text_bottom_line2=EXAMPLE_TEXT_BOTTOM_2,
+    )
     await _save_example_if_needed(state)
     if len(text) >= 50:
         await message.answer(
             "⚠ Описание длинное (50+ символов). На карточке отображаются только первые 3 строки."
         )
-    await state.set_state(CardStates.waiting_for_text_bottom_line1)
+    await state.set_state(CardStates.waiting_for_price)
     await message.answer(
-        f"Введите **первую строку блока справа внизу**.\n_Пример: {EXAMPLE_TEXT_BOTTOM_1}_",
-        reply_markup=cancel_keyboard(default_callback="card_default:text_bottom_line1"),
+        f"Введите **цену** (как на карточке).\n_Пример: {EXAMPLE_PRICE}_",
+        reply_markup=cancel_keyboard(default_callback="card_default:price"),
         parse_mode="Markdown",
     )
 

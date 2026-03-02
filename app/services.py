@@ -33,6 +33,7 @@ async def generate_and_send_card(
     try:
         photos = await download_photos(bot, photo_file_ids)
         main_b, minor1_b, minor2_b = photos[0], photos[1], photos[2]
+        template_id = int(data.get("template_id", 1) or 1)
         svg_path, png_path = await build_card_from_svg(
             main_b,
             minor1_b,
@@ -46,6 +47,7 @@ async def generate_and_send_card(
             text_bottom_line2=str(data.get("text_bottom_line2", "")),
             price=str(data.get("price", "")),
             specs=list(data.get("spec_list", [])),
+            template_id=template_id,
         )
     except Exception as exc:  # noqa: BLE001
         await message.answer(f"Ошибка при создании карточки: {exc}")

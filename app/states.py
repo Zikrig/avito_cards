@@ -2,6 +2,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class CardStates(StatesGroup):
+    waiting_for_template = State()
     waiting_for_main_photo = State()
     waiting_for_minor_photo_1 = State()
     waiting_for_minor_photo_2 = State()

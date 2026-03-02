@@ -34,6 +34,17 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def template_select_keyboard(prefix: str = "card_tpl") -> InlineKeyboardMarkup:
+    """Клавиатура выбора варианта SVG-шаблона. prefix определяет суффикс callback_data."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Вариант 1", callback_data=f"{prefix}:1")],
+            [InlineKeyboardButton(text="Вариант 2", callback_data=f"{prefix}:2")],
+            [InlineKeyboardButton(text="Вариант 3", callback_data=f"{prefix}:3")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
+        ]
+    )
+
 def example_builder_keyboard(data: dict[str, Any]) -> InlineKeyboardMarkup:
     photo_count = len(data.get("example_photo_file_ids", []))
     photos_label = f"📷 Фото: главное + 2 доп. ({photo_count}/3)"

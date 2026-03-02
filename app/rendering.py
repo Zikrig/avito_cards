@@ -7,7 +7,7 @@ from typing import Any
 from playwright.async_api import async_playwright
 
 from .config import AppConfig
-from .constants import LOGO_DEFAULT_PATH, OUTPUT_DIR, SVG_TEMPLATE_PATH
+from .constants import LOGO_DEFAULT_PATH, OUTPUT_DIR, SVG_TEMPLATES, SVG_TEMPLATE_PATH
 
 # Папка со шрифтами для совпадения с примером (MuseoSansVkusVill). Если файлы есть — подключаются при рендере.
 FONTS_DIR = SVG_TEMPLATE_PATH.parent / "fonts"
@@ -122,11 +122,13 @@ def build_svg(
     text_bottom_line2: str,
     price: str,
     specs: list[str],
+    template_id: int = 1,
 ) -> str:
     """Собирает SVG из шаблона: 3 фото, логотип, все тексты (название главное/минорное, цена, до 5 характеристик)."""
-    if not SVG_TEMPLATE_PATH.exists():
-        raise FileNotFoundError(f"Шаблон SVG не найден: {SVG_TEMPLATE_PATH}")
-    template = SVG_TEMPLATE_PATH.read_text(encoding="utf-8")
+    template_path = SVG_TEMPLATES.get(int(template_id) if template_id in SVG_TEMPLATES else 1, SVG_TEMPLATE_PATH)
+    if not template_path.exists():
+        raise FileNotFoundError(f"Шаблон SVG не найден: {template_path}")
+    template = template_path.read_text(encoding="utf-8")
 
     main_url = to_data_url(main_photo)
     minor1_url = to_data_url(minor_photo_1)
@@ -312,6 +314,7 @@ async def build_card_from_svg(
     text_bottom_line2: str = "",
     price: str = "",
     specs: list[str] | None = None,
+    template_id: int = 1,
 ) -> tuple[Path, Path]:
     """Собирает карточку из шаблона SVG (3 фото, логотип, все тексты), сохраняет SVG и рендерит PNG."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -329,6 +332,7 @@ async def build_card_from_svg(
         text_bottom_line2,
         price,
         specs or [],
+        template_id=template_id,
     )
     svg_path.write_text(svg_content, encoding="utf-8")
     await render_svg_to_png(svg_content, png_path)
