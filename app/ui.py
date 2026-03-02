@@ -27,7 +27,11 @@ def cancel_keyboard(
 def examples_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🖼 Сгенерировать карточку", callback_data="example_gen")],
+            [
+                InlineKeyboardButton(text="Вариант 1", callback_data="example_gen:1"),
+                InlineKeyboardButton(text="Вариант 2", callback_data="example_gen:2"),
+                InlineKeyboardButton(text="Вариант 3", callback_data="example_gen:3"),
+            ],
             [InlineKeyboardButton(text="🧾 Задать данные (3 фото)", callback_data="example_edit_data")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]

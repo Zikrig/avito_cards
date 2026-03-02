@@ -92,26 +92,29 @@ async def example_back_builder(callback: CallbackQuery, state: FSMContext) -> No
     await callback.answer()
 
 
-@router.callback_query(F.data == "example_gen")
+@router.callback_query(F.data.startswith("example_gen:"))
 async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
+    raw = (callback.data or "").removeprefix("example_gen:")
+    if raw not in ("1", "2", "3"):
+        await callback.answer()
+        return
+    template_id = int(raw)
     data = await state.get_data()
     photos: list[str] = data.get("example_photo_file_ids", [])
     if len(photos) != 3:
-        # Фоллбек к сохранённым данным примера.
         stored = load_examples()
         photos = list(stored.get("example_photo_file_ids", []))
         if len(photos) == 3:
-            data.update(stored)
+            data = {**data, **stored}
             await state.update_data(**stored)
     if len(photos) != 3:
         await callback.answer("Задайте ровно 3 фото: главное и два дополнительных.", show_alert=True)
         return
-    # Должны быть заполнены тексты (через «Заполнить тексты»)
     if not data.get("title_main"):
         await callback.answer("Сначала нажмите «Заполнить тексты» и введите все данные.", show_alert=True)
         return
 
-    await state.update_data(photo_file_ids=photos[:3])
+    await state.update_data(photo_file_ids=photos[:3], template_id=template_id)
     await callback.answer()
     await generate_and_send_card(
         message=callback.message,
