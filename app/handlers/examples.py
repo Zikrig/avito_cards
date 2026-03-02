@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from ..services import generate_and_send_card
 from ..states import CardStates, ExampleStates
 from ..ui import cancel_keyboard, example_builder_keyboard, examples_menu_keyboard
+from ..example_store import load_examples, save_examples
 
 
 router = Router()
@@ -12,6 +13,9 @@ router = Router()
 
 @router.callback_query(F.data == "example_edit_data")
 async def example_edit_data(callback: CallbackQuery, state: FSMContext) -> None:
+    stored = load_examples()
+    if stored:
+        await state.update_data(**stored)
     await state.set_state(None)
     await callback.message.edit_text("Меню примера: выберите, что изменить.", reply_markup=example_builder_keyboard(await state.get_data()))
     await callback.answer()
@@ -56,6 +60,13 @@ async def example_edit_texts(callback: CallbackQuery, state: FSMContext) -> None
     data = await state.get_data()
     photo_ids: list[str] = data.get("example_photo_file_ids", [])
     if len(photo_ids) != 3:
+        # Пытаемся подгрузить сохранённый пример с диска (после /start, cancel или рестарта контейнера).
+        stored = load_examples()
+        photo_ids = list(stored.get("example_photo_file_ids", []))
+        if len(photo_ids) == 3:
+            data.update(stored)
+            await state.update_data(**stored)
+    if len(photo_ids) != 3:
         await callback.answer("Сначала задайте 3 фото: главное и два дополнительных.", show_alert=True)
         return
     await state.update_data(photo_file_ids=photo_ids[:3], from_example=True)
@@ -86,6 +97,13 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
     data = await state.get_data()
     photos: list[str] = data.get("example_photo_file_ids", [])
     if len(photos) != 3:
+        # Фоллбек к сохранённым данным примера.
+        stored = load_examples()
+        photos = list(stored.get("example_photo_file_ids", []))
+        if len(photos) == 3:
+            data.update(stored)
+            await state.update_data(**stored)
+    if len(photos) != 3:
         await callback.answer("Задайте ровно 3 фото: главное и два дополнительных.", show_alert=True)
         return
     # Должны быть заполнены тексты (через «Заполнить тексты»)
@@ -113,6 +131,8 @@ async def example_collect_photos(message: Message, state: FSMContext) -> None:
         return
     photo_ids.append(message.photo[-1].file_id)
     await state.update_data(example_photo_file_ids=photo_ids)
+    # Сохраняем пример на диск, чтобы переживал перезапуск.
+    save_examples(await state.get_data())
     await message.answer(
         f"Фото добавлено: {len(photo_ids)}/3",
         reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="✅ Готово с фото", callback_data="example_photos_done")]]),
@@ -126,6 +146,7 @@ async def example_features_input(message: Message, state: FSMContext) -> None:
         await message.answer("Характеристики пустые.")
         return
     await state.update_data(example_features=value)
+    save_examples(await state.get_data())
     await state.set_state(None)
     await message.answer("Характеристики сохранены.", reply_markup=example_builder_keyboard(await state.get_data()))
 
@@ -137,6 +158,7 @@ async def example_description_input(message: Message, state: FSMContext) -> None
         await message.answer("Описание пустое.")
         return
     await state.update_data(example_description=value)
+    save_examples(await state.get_data())
     await state.set_state(None)
     await message.answer("Описание сохранено.", reply_markup=example_builder_keyboard(await state.get_data()))
 
@@ -148,6 +170,7 @@ async def example_price_input(message: Message, state: FSMContext) -> None:
         await message.answer("Название+цена пустые.")
         return
     await state.update_data(example_price_text=value)
+    save_examples(await state.get_data())
     await state.set_state(None)
     await message.answer("Название+цена сохранены.", reply_markup=example_builder_keyboard(await state.get_data()))
 
