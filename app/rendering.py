@@ -81,8 +81,8 @@ def _esc(s: str) -> str:
     return html.escape(s or "", quote=True)
 
 
-def _wrap_minor_text(text: str, max_chars: int = 40, max_lines: int = 3) -> list[str]:
-    """Делит описание на 3 строки без обрезки и многоточия."""
+def _wrap_minor_text(text: str, max_chars: int = 36, max_lines: int = 3) -> list[str]:
+    """Делит описание на несколько строк без обрезки и многоточия (по умолчанию ширина ≈36 символов)."""
     src = " ".join((text or "").replace("\r", "\n").split())
     if not src:
         return []
