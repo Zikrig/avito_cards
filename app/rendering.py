@@ -140,6 +140,11 @@ def build_svg(
     svg = template.replace(f'xlink:href="{SVG_MAIN_HREF}"', f'xlink:href="{main_url}"')
     svg = svg.replace(f'xlink:href="{SVG_MINOR1_HREF}"', f'xlink:href="{minor1_url}"')
     svg = svg.replace(f'xlink:href="{SVG_MINOR2_HREF}"', f'xlink:href="{minor2_url}"')
+    # Поддержка старых/битых путей во 2–3 шаблонах (экспорт из Illustrator в CP1251 с заменой кириллицы на «?»).
+    svg = svg.replace(
+        'xlink:href="../../ChatGPT Image 27 ????. 2026 ?., 13_59_03.png"',
+        f'xlink:href="{minor2_url}"',
+    )
 
     if logo_bytes is not None:
         logo_url = to_data_url(logo_bytes, "image/png")
@@ -149,6 +154,10 @@ def build_svg(
         logo_url = None
     if logo_url:
         svg = svg.replace(f'xlink:href="{SVG_LOGO_HREF}"', f'xlink:href="{logo_url}"')
+        svg = svg.replace(
+            'xlink:href="C:\\Users\\user\\Downloads\\??????????????.png"',
+            f'xlink:href="{logo_url}"',
+        )
 
     minor_input = (text_minor or "").strip()
     if "\n" in minor_input:
@@ -161,12 +170,27 @@ def build_svg(
 
     svg = svg.replace("Msi Bravo 15.6", _esc(title_main or "Msi Bravo 15.6"))
     svg = svg.replace("RTX 4060 Ryzen 7 7535HS", _esc(title_sub or "RTX 4060 Ryzen 7 7535HS"))
+
+    # Верхний минорный текст: поддерживаем и нормальные строки, и «кракозябры» из старых шаблонов.
     svg = svg.replace(DEFAULT_MINOR_1, minor_1)
     svg = svg.replace(DEFAULT_MINOR_2, minor_2)
     svg = svg.replace(DEFAULT_MINOR_3, minor_3)
-    svg = svg.replace("Гарантия до 12 месяцев", _esc(text_bottom_line1 or "Гарантия до 12 месяцев"))
-    svg = svg.replace("Доставка или самовывоз", _esc(text_bottom_line2 or "Доставка или самовывоз"))
-    svg = svg.replace("69 990 ₽ ", _esc(price or "69 990 ₽ "))
+    svg = svg.replace("??? ??????? ???????? ?? ?????? ????????,", minor_1)
+    svg = svg.replace("?? ? ??????????, ?????????, 3D-??????????", minor_2)
+    svg = svg.replace("? ???????????????.", minor_3)
+
+    # Нижний блок («Гарантия/Доставка») — тоже с поддержкой битой кириллицы.
+    bottom_line1 = _esc(text_bottom_line1 or "Гарантия до 12 месяцев")
+    bottom_line2 = _esc(text_bottom_line2 or "Доставка или самовывоз")
+    for placeholder in ("Гарантия до 12 месяцев", "???????? ?? 12 ???????"):
+        svg = svg.replace(placeholder, bottom_line1)
+    for placeholder in ("Доставка или самовывоз", "???????? ??? ?????????"):
+        svg = svg.replace(placeholder, bottom_line2)
+
+    # Цена: цифры совпадают, но в старых файлах знак рубля заменён на «?».
+    price_text = _esc(price or "69 990 ₽ ")
+    for placeholder in ("69 990 ₽ ", "69 990 ? "):
+        svg = svg.replace(placeholder, price_text)
 
     # Характеристики — пары «левая часть — правая часть» (до 5 пар).
     # Пользователь может вводить с тире, но на карточке тире не показываем:
