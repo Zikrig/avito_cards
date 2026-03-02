@@ -2,6 +2,7 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
+from ..example_store import save_examples
 from ..services import generate_and_send_card
 from ..states import CardStates
 from ..ui import cancel_keyboard, examples_menu_keyboard
@@ -15,6 +16,13 @@ EXAMPLE_TEXT_BOTTOM_2 = "Доставка или самовывоз"
 EXAMPLE_PRICE = "69 990 ₽"
 
 router = Router()
+
+
+async def _save_example_if_needed(state: FSMContext) -> None:
+    """Если данные заполняются из меню примера, сохраняем их на диск."""
+    data = await state.get_data()
+    if data.get("from_example"):
+        save_examples(data)
 
 
 @router.callback_query(F.data == "menu_create_card")
@@ -99,6 +107,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         return
     updates, next_state, next_text, next_callback = defaults[step]
     await state.update_data(**updates)
+    await _save_example_if_needed(state)
     await state.set_state(next_state)
     await callback.answer()
     await callback.message.answer(
@@ -154,6 +163,7 @@ async def wrong_minor_photo_2(message: Message) -> None:
 @router.message(CardStates.waiting_for_title_main, F.text)
 async def title_main_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(title_main=message.text.strip())
+    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_title_sub)
     await message.answer(
         f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
@@ -170,6 +180,7 @@ async def wrong_title_main(message: Message) -> None:
 @router.message(CardStates.waiting_for_title_sub, F.text)
 async def title_sub_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(title_sub=message.text.strip())
+    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_minor)
     await message.answer(
         f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
@@ -187,6 +198,7 @@ async def wrong_title_sub(message: Message) -> None:
 async def text_minor_handler(message: Message, state: FSMContext) -> None:
     text = message.text.strip()
     await state.update_data(text_minor=text)
+    await _save_example_if_needed(state)
     if len(text) >= 50:
         await message.answer(
             "⚠ Описание длинное (50+ символов). На карточке отображаются только первые 3 строки."
@@ -207,6 +219,7 @@ async def wrong_text_minor(message: Message) -> None:
 @router.message(CardStates.waiting_for_text_bottom_line1, F.text)
 async def text_bottom_1_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(text_bottom_line1=message.text.strip())
+    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_bottom_line2)
     await message.answer(
         f"Введите **вторую строку блока справа внизу**.\n_Пример: {EXAMPLE_TEXT_BOTTOM_2}_",
@@ -223,6 +236,7 @@ async def wrong_text_bottom_1(message: Message) -> None:
 @router.message(CardStates.waiting_for_text_bottom_line2, F.text)
 async def text_bottom_2_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(text_bottom_line2=message.text.strip())
+    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_price)
     await message.answer(
         f"Введите **цену** (как на карточке).\n_Пример: {EXAMPLE_PRICE}_",
@@ -240,6 +254,7 @@ async def wrong_text_bottom_2(message: Message) -> None:
 async def price_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(price=message.text.strip())
     await state.update_data(spec_list=[])
+    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_spec)
     await message.answer(
         "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
@@ -277,6 +292,7 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
 
     spec_list.append(text)
     await state.update_data(spec_list=spec_list)
+    await _save_example_if_needed(state)
 
     if len(spec_list) >= 5:
         from_example = data.get("from_example")
