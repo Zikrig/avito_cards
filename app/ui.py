@@ -28,9 +28,9 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Вариант 1", callback_data="example_gen:1"),
-                InlineKeyboardButton(text="Вариант 2", callback_data="example_gen:2"),
-                InlineKeyboardButton(text="Вариант 3", callback_data="example_gen:3"),
+                InlineKeyboardButton(text="Оранжевый", callback_data="example_gen:1"),
+                InlineKeyboardButton(text="Золотой", callback_data="example_gen:2"),
+                InlineKeyboardButton(text="Голубой", callback_data="example_gen:3"),
             ],
             [InlineKeyboardButton(text="🧾 Задать данные (3 фото)", callback_data="example_edit_data")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
@@ -39,12 +39,12 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def template_select_keyboard(prefix: str = "card_tpl") -> InlineKeyboardMarkup:
-    """Клавиатура выбора варианта SVG-шаблона. prefix определяет суффикс callback_data."""
+    """Клавиатура выбора варианта SVG-шаблона (оранжевый, золотой, голубой)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Вариант 1", callback_data=f"{prefix}:1")],
-            [InlineKeyboardButton(text="Вариант 2", callback_data=f"{prefix}:2")],
-            [InlineKeyboardButton(text="Вариант 3", callback_data=f"{prefix}:3")],
+            [InlineKeyboardButton(text="Оранжевый", callback_data=f"{prefix}:1")],
+            [InlineKeyboardButton(text="Золотой", callback_data=f"{prefix}:2")],
+            [InlineKeyboardButton(text="Голубой", callback_data=f"{prefix}:3")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]
     )
@@ -52,11 +52,14 @@ def template_select_keyboard(prefix: str = "card_tpl") -> InlineKeyboardMarkup:
 def example_builder_keyboard(data: dict[str, Any]) -> InlineKeyboardMarkup:
     photo_count = len(data.get("example_photo_file_ids", []))
     photos_label = f"📷 Фото: главное + 2 доп. ({photo_count}/3)"
+    has_logo = bool(data.get("example_logo_file_id"))
+    logo_label = "🖼 Логотип" + (" ✅" if has_logo else "")
     has_texts = bool(data.get("title_main"))
     texts_label = "📝 Заполнить тексты (название, цена, характеристики)" + (" ✅" if has_texts else "")
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=photos_label, callback_data="example_edit_photos")],
+            [InlineKeyboardButton(text=logo_label, callback_data="example_edit_logo")],
             [InlineKeyboardButton(text=texts_label, callback_data="example_edit_texts")],
             [InlineKeyboardButton(text="⬅️ К примерам", callback_data="menu_examples")],
         ]

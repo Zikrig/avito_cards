@@ -6,6 +6,7 @@ class CardStates(StatesGroup):
     waiting_for_main_photo = State()
     waiting_for_minor_photo_1 = State()
     waiting_for_minor_photo_2 = State()
+    waiting_for_logo = State()
     waiting_for_title_main = State()
     waiting_for_title_sub = State()
     waiting_for_text_minor = State()
@@ -21,6 +22,7 @@ class ConfigStates(StatesGroup):
 
 class ExampleStates(StatesGroup):
     waiting_for_photos = State()
+    waiting_for_logo = State()
     waiting_for_features = State()
     waiting_for_description = State()
     waiting_for_price = State()

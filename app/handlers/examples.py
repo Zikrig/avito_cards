@@ -33,6 +33,26 @@ async def example_edit_photos(callback: CallbackQuery, state: FSMContext) -> Non
     await callback.answer()
 
 
+@router.callback_query(F.data == "example_edit_logo")
+async def example_edit_logo(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(ExampleStates.waiting_for_logo)
+    await callback.message.edit_text(
+        "Отправьте **логотип** (фото или файл PNG/JPG) или нажмите «Убрать логотип».",
+        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="Убрать логотип", callback_data="example_logo_clear")]]),
+        parse_mode="Markdown",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "example_logo_clear")
+async def example_logo_clear(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(example_logo_file_id=None)
+    save_examples(await state.get_data())
+    await state.set_state(None)
+    await callback.message.edit_text("Меню примера: выберите, что изменить.", reply_markup=example_builder_keyboard(await state.get_data()))
+    await callback.answer()
+
+
 @router.callback_query(F.data == "example_edit_features")
 async def example_edit_features(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(ExampleStates.waiting_for_features)
@@ -114,7 +134,11 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await callback.answer("Сначала нажмите «Заполнить тексты» и введите все данные.", show_alert=True)
         return
 
-    await state.update_data(photo_file_ids=photos[:3], template_id=template_id)
+    await state.update_data(
+        photo_file_ids=photos[:3],
+        template_id=template_id,
+        logo_file_id=data.get("example_logo_file_id"),
+    )
     await callback.answer()
     await generate_and_send_card(
         message=callback.message,
@@ -123,6 +147,31 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
         clear_state=False,
     )
     await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
+
+
+@router.message(ExampleStates.waiting_for_logo, F.photo)
+async def example_logo_photo(message: Message, state: FSMContext) -> None:
+    await state.update_data(example_logo_file_id=message.photo[-1].file_id)
+    save_examples(await state.get_data())
+    await state.set_state(None)
+    await message.answer("Логотип сохранён.", reply_markup=example_builder_keyboard(await state.get_data()))
+
+
+@router.message(ExampleStates.waiting_for_logo, F.document)
+async def example_logo_document(message: Message, state: FSMContext) -> None:
+    doc = message.document
+    if doc and doc.mime_type and doc.mime_type.startswith("image/"):
+        await state.update_data(example_logo_file_id=doc.file_id)
+        save_examples(await state.get_data())
+        await state.set_state(None)
+        await message.answer("Логотип сохранён.", reply_markup=example_builder_keyboard(await state.get_data()))
+    else:
+        await message.answer("Отправьте изображение (PNG, JPG) или нажмите «Убрать логотип».")
+
+
+@router.message(ExampleStates.waiting_for_logo)
+async def example_wrong_logo(message: Message) -> None:
+    await message.answer("Отправьте логотип фото/документом (изображение) или нажмите «Убрать логотип».")
 
 
 @router.message(ExampleStates.waiting_for_photos, F.photo)

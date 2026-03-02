@@ -1,6 +1,6 @@
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
 from ..example_store import save_examples
 from ..services import generate_and_send_card
@@ -86,6 +86,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         if from_example:
             preserved_keys = (
                 "example_photo_file_ids",
+                "example_logo_file_id",
                 "example_features",
                 "example_description",
                 "example_price_text",
@@ -172,6 +173,34 @@ async def minor_photo_2_handler(message: Message, state: FSMContext) -> None:
     ids: list[str] = list(data.get("photo_file_ids", []))
     ids.append(message.photo[-1].file_id)
     await state.update_data(photo_file_ids=ids)
+    await state.set_state(CardStates.waiting_for_logo)
+    await message.answer(
+        "Отправьте **логотип** (фото или файл PNG/JPG) или нажмите «Без логотипа», чтобы использовать стандартный.",
+        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]]),
+        parse_mode="Markdown",
+    )
+
+
+@router.message(CardStates.waiting_for_minor_photo_2)
+async def wrong_minor_photo_2(message: Message) -> None:
+    await message.answer("Отправьте фото (второе дополнительное).")
+
+
+@router.callback_query(F.data == "card_skip_logo", CardStates.waiting_for_logo)
+async def card_skip_logo_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(logo_file_id=None)
+    await state.set_state(CardStates.waiting_for_title_main)
+    await callback.message.edit_text(
+        f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+        reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
+        parse_mode="Markdown",
+    )
+    await callback.answer()
+
+
+@router.message(CardStates.waiting_for_logo, F.photo)
+async def logo_photo_handler(message: Message, state: FSMContext) -> None:
+    await state.update_data(logo_file_id=message.photo[-1].file_id)
     await state.set_state(CardStates.waiting_for_title_main)
     await message.answer(
         f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
@@ -180,9 +209,24 @@ async def minor_photo_2_handler(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(CardStates.waiting_for_minor_photo_2)
-async def wrong_minor_photo_2(message: Message) -> None:
-    await message.answer("Отправьте фото (второе дополнительное).")
+@router.message(CardStates.waiting_for_logo, F.document)
+async def logo_document_handler(message: Message, state: FSMContext) -> None:
+    doc = message.document
+    if doc and doc.mime_type and doc.mime_type.startswith("image/"):
+        await state.update_data(logo_file_id=doc.file_id)
+        await state.set_state(CardStates.waiting_for_title_main)
+        await message.answer(
+            f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+            reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
+            parse_mode="Markdown",
+        )
+    else:
+        await message.answer("Отправьте изображение (PNG, JPG и т.п.) или нажмите «Без логотипа».")
+
+
+@router.message(CardStates.waiting_for_logo)
+async def wrong_logo(message: Message) -> None:
+    await message.answer("Отправьте логотип фото/документом (изображение) или нажмите «Без логотипа».")
 
 
 @router.message(CardStates.waiting_for_title_main, F.text)

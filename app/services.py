@@ -34,12 +34,21 @@ async def generate_and_send_card(
         photos = await download_photos(bot, photo_file_ids)
         main_b, minor1_b, minor2_b = photos[0], photos[1], photos[2]
         template_id = int(data.get("template_id", 1) or 1)
+        logo_bytes = None
+        logo_file_id = data.get("logo_file_id") or data.get("example_logo_file_id")
+        if logo_file_id:
+            try:
+                logo_list = await download_photos(bot, [logo_file_id])
+                if logo_list:
+                    logo_bytes = logo_list[0]
+            except Exception:
+                pass
         svg_path, png_path = await build_card_from_svg(
             main_b,
             minor1_b,
             minor2_b,
             message.from_user.id if message.from_user else 0,
-            logo_bytes=None,
+            logo_bytes=logo_bytes,
             title_main=str(data.get("title_main", "")),
             title_sub=str(data.get("title_sub", "")),
             text_minor=str(data.get("text_minor", "")),
