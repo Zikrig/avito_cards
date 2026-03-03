@@ -38,6 +38,18 @@ def _get_defaults_from_example_store() -> dict[str, Any]:
     }
 
 
+def _get_spec_example_for_index(index: int) -> str | None:
+    """
+    Возвращает пример характеристики для шага с данным индексом (0‑based),
+    чтобы можно было показать её в тексте подсказки.
+    """
+    defaults = _get_defaults_from_example_store()
+    specs: list[str] = defaults.get("spec_list", [])
+    if 0 <= index < len(specs):
+        return specs[index]
+    return None
+
+
 async def _save_example_if_needed(state: FSMContext) -> None:
     """Если данные заполняются из меню примера, сохраняем их на диск."""
     data = await state.get_data()
@@ -201,10 +213,14 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         await callback.answer()
 
         n_next = len(current) + 1
-        prefix = (
-            f"Примерная характеристика {len(current)} подставлена.\n"
-            f"_Пример: {next_spec}_\n\n"
-        )
+        prefix_lines = [f"Примерная характеристика {len(current)} подставлена: _{next_spec}_."]
+
+        # Пример для следующего шага (что будет подставлено по умолчанию на нём).
+        next_example = _get_spec_example_for_index(len(current))
+        if next_example:
+            prefix_lines.append(f"Например: _{next_example}_")
+
+        prefix = "\n".join(prefix_lines) + "\n\n"
 
         if len(current) >= 5:
             # Подставили последнюю примерную характеристику и достигли лимита — генерируем карточку.
@@ -466,8 +482,10 @@ async def price_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(spec_list=[])
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_spec)
+    example_spec = _get_spec_example_for_index(0) or "Экран — 15.6 дюймов"
     await message.answer(
-        "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
+        f"Введите **характеристику 1** — две части через « — » "
+        f"(например: _{example_spec}_). Или «готово», чтобы закончить (всего до 5 пар).",
         reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )
@@ -513,8 +531,10 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
         return
 
     n = len(spec_list) + 1
+    example_spec = _get_spec_example_for_index(len(spec_list)) or 'Экран — 15.6 дюймов'
     await message.answer(
-        f"Пара добавлена. Введите **характеристику {n}** — две части через « — » (или «готово»).",
+        f"Пара добавлена. Введите **характеристику {n}** — две части через « — » "
+        f"(например: _{example_spec}_), или «готово».",
         reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )
