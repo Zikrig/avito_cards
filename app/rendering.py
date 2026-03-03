@@ -154,11 +154,19 @@ def build_svg(
         logo_url = to_data_url(LOGO_DEFAULT_PATH.read_bytes(), "image/png")
     else:
         logo_url = None
+
     if logo_url:
         svg = svg.replace(f'xlink:href="{SVG_LOGO_HREF}"', f'xlink:href="{logo_url}"')
         svg = svg.replace(
             'xlink:href="C:\\Users\\user\\Downloads\\??????????????.png"',
             f'xlink:href="{logo_url}"',
+        )
+    else:
+        # Пользователь выбрал вариант без логотипа: убираем элемент <image> с путём логотипа,
+        # чтобы не оставлять «битую» иконку отсутствующего файла.
+        svg = svg.replace(
+            '<image style="overflow:visible;" width="2480" height="1748" xlink:href="C:\\Users\\user\\Downloads\\Дополнительный.png"  transform="matrix(0.193 0 0 0.193 847.4407 726.5693)">\n</image>',
+            "",
         )
 
     minor_input = (text_minor or "").strip()
