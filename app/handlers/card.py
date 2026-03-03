@@ -482,7 +482,9 @@ async def price_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(spec_list=[])
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_spec)
-    example_spec = _get_spec_example_for_index(0) or "Экран — 15.6 дюймов"
+    # В качестве примера для первой характеристики используем первую пару из сохранённого примера,
+    # а если её нет — жёстко заданный пример CPU, чтобы совпадал с тем, что подставит «По умолчанию».
+    example_spec = _get_spec_example_for_index(0) or "СРU — Ryzеn 7 7535НS."
     await message.answer(
         f"Введите **характеристику 1** — две части через « — » "
         f"(например: _{example_spec}_). Или «готово», чтобы закончить (всего до 5 пар).",
