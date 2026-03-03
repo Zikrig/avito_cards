@@ -1,8 +1,10 @@
+from typing import Any
+
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
-from ..example_store import save_examples
+from ..example_store import load_examples, save_examples
 from ..services import generate_and_send_card
 from ..states import CardStates
 from ..ui import cancel_keyboard, examples_menu_keyboard, template_select_keyboard
@@ -16,6 +18,24 @@ EXAMPLE_TEXT_BOTTOM_2 = "Доставка или самовывоз"
 EXAMPLE_PRICE = "69 990 ₽"
 
 router = Router()
+
+
+def _get_defaults_from_example_store() -> dict[str, Any]:
+    """
+    Берёт значения по умолчанию из сохранённого примера (examples.json),
+    а если их нет — использует константы из этого файла.
+    """
+    stored = load_examples()
+    return {
+        "title_main": str(stored.get("title_main") or EXAMPLE_TITLE_MAIN),
+        "title_sub": str(stored.get("title_sub") or EXAMPLE_TITLE_SUB),
+        "text_minor": str(stored.get("text_minor") or EXAMPLE_TEXT_MINOR),
+        "text_bottom_line1": str(stored.get("text_bottom_line1") or EXAMPLE_TEXT_BOTTOM_1),
+        "text_bottom_line2": str(stored.get("text_bottom_line2") or EXAMPLE_TEXT_BOTTOM_2),
+        "price": str(stored.get("price") or EXAMPLE_PRICE),
+        # Характеристики: берём список, если он был сохранён вместе с примером.
+        "spec_list": list(stored.get("spec_list") or []),
+    }
 
 
 async def _save_example_if_needed(state: FSMContext) -> None:
@@ -98,31 +118,36 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
             await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
         return
 
+    stored_defaults = _get_defaults_from_example_store()
     defaults = {
         "title_main": (
-            {"title_main": EXAMPLE_TITLE_MAIN},
+            {"title_main": stored_defaults["title_main"]},
             CardStates.waiting_for_title_sub,
             f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
             "card_default:title_sub",
         ),
         "title_sub": (
-            {"title_sub": EXAMPLE_TITLE_SUB},
+            {"title_sub": stored_defaults["title_sub"]},
             CardStates.waiting_for_text_minor,
             f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
             "card_default:text_minor",
         ),
         "text_minor": (
             {
-                "text_minor": EXAMPLE_TEXT_MINOR,
-                "text_bottom_line1": EXAMPLE_TEXT_BOTTOM_1,
-                "text_bottom_line2": EXAMPLE_TEXT_BOTTOM_2,
+                "text_minor": stored_defaults["text_minor"],
+                "text_bottom_line1": stored_defaults["text_bottom_line1"],
+                "text_bottom_line2": stored_defaults["text_bottom_line2"],
             },
             CardStates.waiting_for_price,
             f"Введите **цену** (как на карточке).\n_Пример: {EXAMPLE_PRICE}_",
             "card_default:price",
         ),
         "price": (
-            {"price": EXAMPLE_PRICE, "spec_list": []},
+            {
+                "price": stored_defaults["price"],
+                # Если в сохранённом примере уже есть характеристики — подставляем их сразу.
+                "spec_list": list(stored_defaults["spec_list"]),
+            },
             CardStates.waiting_for_spec,
             "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
             "card_default:spec_done",
