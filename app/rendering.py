@@ -171,13 +171,18 @@ def build_svg(
             svg = svg.replace(placeholder, "")
 
     minor_input = (text_minor or "").strip()
-    if "\n" in minor_input:
-        minor_lines = [line.strip() for line in minor_input.split("\n") if line.strip()]
+    if minor_input:
+        if "\n" in minor_input:
+            minor_lines = [line.strip() for line in minor_input.split("\n") if line.strip()]
+        else:
+            minor_lines = _wrap_minor_text(minor_input)
+        minor_1 = _esc(minor_lines[0] if len(minor_lines) > 0 else "")
+        minor_2 = _esc(minor_lines[1] if len(minor_lines) > 1 else "")
+        minor_3 = _esc(minor_lines[2] if len(minor_lines) > 2 else "")
     else:
-        minor_lines = _wrap_minor_text(minor_input)
-    minor_1 = _esc((minor_lines[0] if len(minor_lines) > 0 else "") or DEFAULT_MINOR_1)
-    minor_2 = _esc((minor_lines[1] if len(minor_lines) > 1 else "") or DEFAULT_MINOR_2)
-    minor_3 = _esc((minor_lines[2] if len(minor_lines) > 2 else "") or DEFAULT_MINOR_3)
+        minor_1 = _esc(DEFAULT_MINOR_1)
+        minor_2 = _esc(DEFAULT_MINOR_2)
+        minor_3 = _esc(DEFAULT_MINOR_3)
 
     svg = svg.replace("Msi Bravo 15.6", _esc(title_main or "Msi Bravo 15.6"))
     svg = svg.replace("RTX 4060 Ryzen 7 7535HS", _esc(title_sub or "RTX 4060 Ryzen 7 7535HS"))
