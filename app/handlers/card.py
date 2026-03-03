@@ -173,12 +173,13 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         current: list[str] = list(data.get("spec_list", []))
 
         if len(current) >= 5:
+            # Уже есть максимум характеристик — сразу генерируем карточку.
+            from_example = data.get("from_example")
             await callback.answer()
-            await callback.message.answer(
-                "Достигнут лимит: 5 характеристик.\n"
-                "Если хотите сгенерировать карточку, отправьте «готово».",
-                parse_mode="Markdown",
-            )
+            await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
+            if from_example:
+                await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
+                await state.clear()
             return
 
         # Подставляем ОДНУ следующую характеристику из примера.
@@ -206,12 +207,16 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         )
 
         if len(current) >= 5:
+            # Подставили последнюю примерную характеристику и достигли лимита — генерируем карточку.
+            from_example = data.get("from_example")
             await callback.message.answer(
-                prefix
-                + "Достигнут лимит: 5 характеристик.\n"
-                  "Если хотите сгенерировать карточку, отправьте «готово».",
+                prefix + "Достигнут лимит: 5 характеристик. Генерирую карточку…",
                 parse_mode="Markdown",
             )
+            await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
+            if from_example:
+                await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
+                await state.clear()
         else:
             await callback.message.answer(
                 prefix
