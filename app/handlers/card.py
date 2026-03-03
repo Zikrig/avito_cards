@@ -93,20 +93,15 @@ async def main_photo_handler(message: Message, state: FSMContext) -> None:
     ids.append(message.photo[-1].file_id)
     await state.update_data(photo_file_ids=ids)
     if len(ids) < 3:
-        await message.answer(
-            f"Фото добавлено: {len(ids)}/3.\n"
-            "Отправьте ещё фото, чтобы всего было 3 (1 главное и 2 доп.).",
-            reply_markup=cancel_keyboard(),
-            parse_mode="Markdown",
-        )
+        # Просто копим фото без лишних сообщений, пока не будет 3 штуки.
         return
 
     # Есть как минимум 3 фото — берём первые три и переходим к логотипу.
     await state.update_data(photo_file_ids=ids[:3])
     await state.set_state(CardStates.waiting_for_logo)
     await message.answer(
-        "Фото сохранены.\n"
-        "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
+        "Получил 3 фото (1 главное и 2 дополнительных).\n"
+        "Теперь отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
         reply_markup=cancel_keyboard(
             extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
             default_callback="card_default:logo",
@@ -312,7 +307,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
 
 @router.message(CardStates.waiting_for_main_photo)
 async def wrong_main_photo(message: Message) -> None:
-    await message.answer("Отправьте одно фото (главное изображение товара).")
+    await message.answer("Отправьте 3 фото ноутбука (1 главное и 2 дополнительных).")
 
 
 @router.message(CardStates.waiting_for_minor_photo_1)
