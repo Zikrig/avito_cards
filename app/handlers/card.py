@@ -78,7 +78,7 @@ async def card_template_select(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(template_id=int(raw), photo_file_ids=[])
     await state.set_state(CardStates.waiting_for_main_photo)
     await callback.message.edit_text(
-        "Отправьте **главное фото** товара (оно будет в большом блоке справа).\n"
+        "Отправьте **3 фото ноутбука одним сообщением**: первое будет главным (в большом блоке справа), ещё два — дополнительными.\n"
         "Или нажмите «По умолчанию», чтобы использовать фото из сохранённого примера.",
         reply_markup=cancel_keyboard(default_callback="card_default:photos"),
         parse_mode="Markdown",
