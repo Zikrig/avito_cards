@@ -190,10 +190,6 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         data = await state.get_data()
         stored_defaults = _get_defaults_from_example_store()
         default_specs: list[str] = list(stored_defaults["spec_list"])
-        if not default_specs:
-            await callback.answer("В примере нет сохранённых характеристик.", show_alert=True)
-            return
-
         spec_list: list[str] = list(data.get("spec_list", []))
         step = int(data.get("spec_step", 0))
         labels = ["CPU", "GPU", "RAM", "SSD", "Display"]
