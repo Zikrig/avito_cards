@@ -47,6 +47,36 @@ async def generate_and_send_card(
                 except Exception:
                     # Если логотип не скачался — просто продолжаем без него.
                     logo_bytes = None
+        # Готовим характеристики и подзаголовок на основе CPU / GPU.
+        raw_specs: list[str] = list(data.get("spec_list", []))
+
+        def _extract_value(label: str) -> str:
+            for item in raw_specs:
+                low = item.lower()
+                if low.startswith(label.lower()):
+                    parts = item.split("—", 1)
+                    if len(parts) > 1:
+                        return parts[1].strip()
+                    # Fallback: всё после двоеточия/пробела.
+                    return item[len(label) :].strip()
+            return ""
+
+        cpu_val = _extract_value("cpu")
+        gpu_val = _extract_value("gpu")
+        auto_title_sub = " ".join(part for part in (gpu_val, cpu_val) if part).strip()
+
+        # Форматируем цену: убираем всё, кроме цифр, ставим пробелы по тысячам и знак ₽.
+        raw_price = str(data.get("price", "")).strip()
+        digits = "".join(ch for ch in raw_price if ch.isdigit())
+        if digits:
+            try:
+                price_int = int(digits)
+                formatted_price = f"{price_int:,}".replace(",", " ") + " ₽"
+            except ValueError:
+                formatted_price = raw_price or ""
+        else:
+            formatted_price = ""
+
         svg_path, png_path = await build_card_from_svg(
             main_b,
             minor1_b,
@@ -54,12 +84,12 @@ async def generate_and_send_card(
             message.from_user.id if message.from_user else 0,
             logo_bytes=logo_bytes,
             title_main=str(data.get("title_main", "")),
-            title_sub=str(data.get("title_sub", "")),
+            title_sub=auto_title_sub or str(data.get("title_sub", "")),
             text_minor=str(data.get("text_minor", "")),
             text_bottom_line1=str(data.get("text_bottom_line1", "")),
             text_bottom_line2=str(data.get("text_bottom_line2", "")),
-            price=str(data.get("price", "")),
-            specs=list(data.get("spec_list", [])),
+            price=formatted_price,
+            specs=raw_specs,
             template_id=template_id,
             use_default_logo=not skip_logo,
         )

@@ -92,7 +92,7 @@ async def example_edit_texts(callback: CallbackQuery, state: FSMContext) -> None
     await state.update_data(photo_file_ids=photo_ids[:3], from_example=True)
     await state.set_state(CardStates.waiting_for_title_main)
     await callback.message.edit_text(
-        "Введите **название главное** (одной строкой).\n_Пример: Msi Bravo 15.6_",
+        "Укажите модель и бренд ноутбука.\n_Пример: Msi Bravo 15.6_",
         reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
         parse_mode="Markdown",
     )

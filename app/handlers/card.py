@@ -88,12 +88,29 @@ async def card_template_select(callback: CallbackQuery, state: FSMContext) -> No
 
 @router.message(CardStates.waiting_for_main_photo, F.photo)
 async def main_photo_handler(message: Message, state: FSMContext) -> None:
-    file_id = message.photo[-1].file_id
-    await state.update_data(photo_file_ids=[file_id])
-    await state.set_state(CardStates.waiting_for_minor_photo_1)
+    data = await state.get_data()
+    ids: list[str] = list(data.get("photo_file_ids", []))
+    ids.append(message.photo[-1].file_id)
+    await state.update_data(photo_file_ids=ids)
+    if len(ids) < 3:
+        await message.answer(
+            f"Фото добавлено: {len(ids)}/3.\n"
+            "Отправьте ещё фото, чтобы всего было 3 (1 главное и 2 доп.).",
+            reply_markup=cancel_keyboard(),
+            parse_mode="Markdown",
+        )
+        return
+
+    # Есть как минимум 3 фото — берём первые три и переходим к логотипу.
+    await state.update_data(photo_file_ids=ids[:3])
+    await state.set_state(CardStates.waiting_for_logo)
     await message.answer(
-        "Главное фото принято. Отправьте **первое дополнительное фото** (малый блок слева внизу).",
-        reply_markup=cancel_keyboard(),
+        "Фото сохранены.\n"
+        "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
+        reply_markup=cancel_keyboard(
+            extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
+            default_callback="card_default:logo",
+        ),
         parse_mode="Markdown",
     )
 
@@ -168,24 +185,26 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         await state.set_state(CardStates.waiting_for_title_main)
         await callback.answer()
         await callback.message.answer(
-            f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+            f"Укажите модель и бренд ноутбука.\n_Пример: {EXAMPLE_TITLE_MAIN}_",
             reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
             parse_mode="Markdown",
         )
         return
 
     if step == "spec_example":
+        data = await state.get_data()
         stored_defaults = _get_defaults_from_example_store()
         default_specs: list[str] = list(stored_defaults["spec_list"])
         if not default_specs:
             await callback.answer("В примере нет сохранённых характеристик.", show_alert=True)
             return
 
-        data = await state.get_data()
-        current: list[str] = list(data.get("spec_list", []))
+        spec_list: list[str] = list(data.get("spec_list", []))
+        step = int(data.get("spec_step", 0))
+        labels = ["CPU", "GPU", "RAM", "SSD", "Display"]
 
-        if len(current) >= 5:
-            # Уже есть максимум характеристик — сразу генерируем карточку.
+        if step >= len(labels):
+            # Все характеристики уже заполнены — генерируем карточку.
             from_example = data.get("from_example")
             await callback.answer()
             await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
@@ -194,39 +213,34 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
                 await state.clear()
             return
 
-        # Подставляем ОДНУ следующую характеристику из примера.
-        idx = len(current)
-        if idx >= len(default_specs):
-            await callback.answer()
-            await callback.message.answer(
-                "Все примерные характеристики уже подставлены.\n"
-                "Введите свою характеристику или отправьте «готово».",
-                reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
-                parse_mode="Markdown",
-            )
-            return
+        label = labels[step]
+        example_value = None
+        for item in default_specs:
+            if item.lower().startswith(label.lower()):
+                parts = item.split("—", 1)
+                if len(parts) > 1:
+                    example_value = parts[1].strip()
+                break
+        fallback_examples = {
+            "CPU": "Ryzen 7 7535HS",
+            "GPU": "RTX 4060",
+            "RAM": "16 ГБ",
+            "SSD": "512 ГБ",
+            "Display": '15.6" IPS 144 Гц',
+        }
+        example_value = example_value or fallback_examples.get(label, "")
 
-        next_spec = default_specs[idx]
-        current.append(next_spec)
-        await state.update_data(spec_list=current)
+        spec_entry = f"{label} — {example_value}"
+        spec_list.append(spec_entry)
+        await state.update_data(spec_list=spec_list, spec_step=step + 1)
         await _save_example_if_needed(state)
         await callback.answer()
 
-        n_next = len(current) + 1
-        prefix_lines = [f"Примерная характеристика {len(current)} подставлена: _{next_spec}_."]
-
-        # Пример для следующего шага (что будет подставлено по умолчанию на нём).
-        next_example = _get_spec_example_for_index(len(current))
-        if next_example:
-            prefix_lines.append(f"Например: _{next_example}_")
-
-        prefix = "\n".join(prefix_lines) + "\n\n"
-
-        if len(current) >= 5:
-            # Подставили последнюю примерную характеристику и достигли лимита — генерируем карточку.
+        if step + 1 >= len(labels):
             from_example = data.get("from_example")
             await callback.message.answer(
-                prefix + "Достигнут лимит: 5 характеристик. Генерирую карточку…",
+                f"Примерная характеристика {label} подставлена: _{example_value}_.\n"
+                "Все основные характеристики указаны. Генерирую карточку…",
                 parse_mode="Markdown",
             )
             await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
@@ -234,10 +248,19 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
                 await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
                 await state.clear()
         else:
+            next_label = labels[step + 1]
+            next_example_value = None
+            for item in default_specs:
+                if item.lower().startswith(next_label.lower()):
+                    parts = item.split("—", 1)
+                    if len(parts) > 1:
+                        next_example_value = parts[1].strip()
+                    break
+            next_example_value = next_example_value or fallback_examples.get(next_label, "")
+
             await callback.message.answer(
-                prefix
-                + f"Введите **характеристику {n_next}** — две части через « — » "
-                  "(или «готово»), либо снова нажмите «По умолчанию», чтобы подставить следующую пару из примера.",
+                f"Примерная характеристика {label} подставлена: _{example_value}_.\n\n"
+                f"Укажите {next_label} (например: _{next_example_value}_).",
                 reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
                 parse_mode="Markdown",
             )
@@ -247,12 +270,6 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
     defaults = {
         "title_main": (
             {"title_main": stored_defaults["title_main"]},
-            CardStates.waiting_for_title_sub,
-            f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
-            "card_default:title_sub",
-        ),
-        "title_sub": (
-            {"title_sub": stored_defaults["title_sub"]},
             CardStates.waiting_for_text_minor,
             f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
             "card_default:text_minor",
@@ -298,45 +315,11 @@ async def wrong_main_photo(message: Message) -> None:
     await message.answer("Отправьте одно фото (главное изображение товара).")
 
 
-@router.message(CardStates.waiting_for_minor_photo_1, F.photo)
-async def minor_photo_1_handler(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    ids: list[str] = list(data.get("photo_file_ids", []))
-    ids.append(message.photo[-1].file_id)
-    await state.update_data(photo_file_ids=ids)
-    await state.set_state(CardStates.waiting_for_minor_photo_2)
-    await message.answer(
-        "Первое доп. фото принято. Отправьте **второе дополнительное фото** (второй малый блок слева внизу).",
-        reply_markup=cancel_keyboard(),
-        parse_mode="Markdown",
-    )
-
-
 @router.message(CardStates.waiting_for_minor_photo_1)
-async def wrong_minor_photo_1(message: Message) -> None:
-    await message.answer("Отправьте фото (первое дополнительное).")
-
-
-@router.message(CardStates.waiting_for_minor_photo_2, F.photo)
-async def minor_photo_2_handler(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    ids: list[str] = list(data.get("photo_file_ids", []))
-    ids.append(message.photo[-1].file_id)
-    await state.update_data(photo_file_ids=ids)
-    await state.set_state(CardStates.waiting_for_logo)
-    await message.answer(
-        "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
-        reply_markup=cancel_keyboard(
-            extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
-            default_callback="card_default:logo",
-        ),
-        parse_mode="Markdown",
-    )
-
-
 @router.message(CardStates.waiting_for_minor_photo_2)
-async def wrong_minor_photo_2(message: Message) -> None:
-    await message.answer("Отправьте фото (второе дополнительное).")
+async def _unused_minor_photo_states(message: Message) -> None:
+    # Эти состояния больше не используются: все 3 фото собираем на шаге waiting_for_main_photo.
+    await message.answer("Сначала выберите формат карточки и отправьте до 3 фото в ответ.")
 
 
 @router.callback_query(F.data == "card_skip_logo", CardStates.waiting_for_logo)
@@ -358,7 +341,7 @@ async def logo_photo_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(logo_file_id=message.photo[-1].file_id, skip_logo=False)
     await state.set_state(CardStates.waiting_for_title_main)
     await message.answer(
-        f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+        f"Укажите модель и бренд ноутбука.\n_Пример: {EXAMPLE_TITLE_MAIN}_",
         reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
         parse_mode="Markdown",
     )
@@ -371,7 +354,7 @@ async def logo_document_handler(message: Message, state: FSMContext) -> None:
         await state.update_data(logo_file_id=doc.file_id, skip_logo=False)
         await state.set_state(CardStates.waiting_for_title_main)
         await message.answer(
-            f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+            f"Укажите модель и бренд ноутбука.\n_Пример: {EXAMPLE_TITLE_MAIN}_",
             reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
             parse_mode="Markdown",
         )
@@ -388,23 +371,6 @@ async def wrong_logo(message: Message) -> None:
 async def title_main_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(title_main=message.text.strip())
     await _save_example_if_needed(state)
-    await state.set_state(CardStates.waiting_for_title_sub)
-    await message.answer(
-        f"Введите **подзаголовок** (название минорное, одна строка).\n_Пример: {EXAMPLE_TITLE_SUB}_",
-        reply_markup=cancel_keyboard(default_callback="card_default:title_sub"),
-        parse_mode="Markdown",
-    )
-
-
-@router.message(CardStates.waiting_for_title_main)
-async def wrong_title_main(message: Message) -> None:
-    await message.answer("Отправьте текст названия.")
-
-
-@router.message(CardStates.waiting_for_title_sub, F.text)
-async def title_sub_handler(message: Message, state: FSMContext) -> None:
-    await state.update_data(title_sub=message.text.strip())
-    await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_minor)
     await message.answer(
         f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
@@ -413,9 +379,9 @@ async def title_sub_handler(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(CardStates.waiting_for_title_sub)
-async def wrong_title_sub(message: Message) -> None:
-    await message.answer("Отправьте текст подзаголовка.")
+@router.message(CardStates.waiting_for_title_main)
+async def wrong_title_main(message: Message) -> None:
+    await message.answer("Укажите модель и бренд ноутбука текстом.")
 
 
 @router.message(CardStates.waiting_for_text_minor, F.text)
@@ -481,15 +447,13 @@ async def wrong_text_bottom_2(message: Message) -> None:
 @router.message(CardStates.waiting_for_price, F.text)
 async def price_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(price=message.text.strip())
-    await state.update_data(spec_list=[])
+    # Начинаем пошаговый сбор характеристик: CPU, GPU, RAM, SSD, Display.
+    await state.update_data(spec_list=[], spec_step=0)
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_spec)
-    # В качестве примера для первой характеристики используем первую пару из сохранённого примера,
-    # а если её нет — жёстко заданный пример CPU, чтобы совпадал с тем, что подставит «По умолчанию».
-    example_spec = _get_spec_example_for_index(0) or "СРU — Ryzеn 7 7535НS."
+    cpu_example = _get_spec_example_for_index(0) or "Ryzen 7 7535HS"
     await message.answer(
-        f"Введите **характеристику 1** — две части через « — » "
-        f"(например: _{example_spec}_). Или «готово», чтобы закончить (всего до 5 пар).",
+        f"Укажите CPU (например: _{cpu_example}_).",
         reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )
@@ -510,11 +474,23 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     text = message.text.strip()
     data = await state.get_data()
     spec_list: list[str] = list(data.get("spec_list", []))
+    step = int(data.get("spec_step", 0))
 
-    if _spec_done(text):
-        if not spec_list:
-            await message.answer("Добавьте хотя бы одну характеристику или введите текст характеристики.")
-            return
+    # Позволяем пользователю досрочно завершить ввод характеристик.
+    if _spec_done(text) and spec_list:
+        from_example = data.get("from_example")
+        await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
+        if from_example:
+            await message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
+            await state.clear()
+        return
+    elif _spec_done(text):
+        await message.answer("Сначала укажите хотя бы одну характеристику.")
+        return
+
+    labels = ["CPU", "GPU", "RAM", "SSD", "Display"]
+    if step >= len(labels):
+        # На всякий случай, если шаг вышел за пределы — считаем, что всё заполнено.
         from_example = data.get("from_example")
         await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
         if from_example:
@@ -522,23 +498,45 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
             await state.clear()
         return
 
-    spec_list.append(text)
-    await state.update_data(spec_list=spec_list)
+    label = labels[step]
+    value = text
+    spec_entry = f"{label} — {value}"
+    spec_list.append(spec_entry)
+    await state.update_data(spec_list=spec_list, spec_step=step + 1)
     await _save_example_if_needed(state)
 
-    if len(spec_list) >= 5:
+    if step + 1 >= len(labels):
+        # Все 5 характеристик собраны — генерируем карточку.
         from_example = data.get("from_example")
+        await message.answer("Все основные характеристики указаны. Генерирую карточку…")
         await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
         if from_example:
             await message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
             await state.clear()
         return
 
-    n = len(spec_list) + 1
-    example_spec = _get_spec_example_for_index(len(spec_list)) or 'Экран — 15.6 дюймов'
+    # Иначе спрашиваем следующую характеристику.
+    next_label = labels[step + 1]
+    example_value = None
+    # Пробуем взять пример из сохранённых характеристик.
+    defaults = _get_defaults_from_example_store()
+    for item in defaults.get("spec_list", []):
+        if item.lower().startswith(next_label.lower()):
+            parts = item.split("—", 1)
+            if len(parts) > 1:
+                example_value = parts[1].strip()
+            break
+    fallback_examples = {
+        "CPU": "Ryzen 7 7535HS",
+        "GPU": "RTX 4060",
+        "RAM": "16 ГБ",
+        "SSD": "512 ГБ",
+        "Display": '15.6" IPS 144 Гц',
+    }
+    example_value = example_value or fallback_examples.get(next_label, "")
+
     await message.answer(
-        f"Пара добавлена. Введите **характеристику {n}** — две части через « — » "
-        f"(например: _{example_spec}_), или «готово».",
+        f"Укажите {next_label} (например: _{example_value}_).",
         reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )

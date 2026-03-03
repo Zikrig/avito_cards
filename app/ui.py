@@ -28,9 +28,9 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Оранжевый", callback_data="example_gen:1"),
-                InlineKeyboardButton(text="Золотой", callback_data="example_gen:2"),
-                InlineKeyboardButton(text="Голубой", callback_data="example_gen:3"),
+                InlineKeyboardButton(text="КнВ", callback_data="example_gen:1"),
+                InlineKeyboardButton(text="МНСГ", callback_data="example_gen:2"),
+                InlineKeyboardButton(text="Паша", callback_data="example_gen:3"),
             ],
             [InlineKeyboardButton(text="🧾 Задать данные (3 фото)", callback_data="example_edit_data")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
@@ -39,12 +39,12 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def template_select_keyboard(prefix: str = "card_tpl") -> InlineKeyboardMarkup:
-    """Клавиатура выбора варианта SVG-шаблона (оранжевый, золотой, голубой)."""
+    """Клавиатура выбора варианта SVG-шаблона (КнВ, МНСГ, Паша)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Оранжевый", callback_data=f"{prefix}:1")],
-            [InlineKeyboardButton(text="Золотой", callback_data=f"{prefix}:2")],
-            [InlineKeyboardButton(text="Голубой", callback_data=f"{prefix}:3")],
+            [InlineKeyboardButton(text="КнВ", callback_data=f"{prefix}:1")],
+            [InlineKeyboardButton(text="МНСГ", callback_data=f"{prefix}:2")],
+            [InlineKeyboardButton(text="Паша", callback_data=f"{prefix}:3")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
         ]
     )
