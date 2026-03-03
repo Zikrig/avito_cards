@@ -164,10 +164,11 @@ def build_svg(
     else:
         # Пользователь выбрал вариант без логотипа: убираем элемент <image> с путём логотипа,
         # чтобы не оставлять «битую» иконку отсутствующего файла.
-        svg = svg.replace(
+        for placeholder in (
             '<image style="overflow:visible;" width="2480" height="1748" xlink:href="C:\\Users\\user\\Downloads\\Дополнительный.png"  transform="matrix(0.193 0 0 0.193 847.4407 726.5693)">\n</image>',
-            "",
-        )
+            '<image style="overflow:visible;" width="2480" height="1748" xlink:href="C:\\Users\\user\\Downloads\\??????????????.png"  transform="matrix(0.193 0 0 0.193 847.4407 726.5693)">\n</image>',
+        ):
+            svg = svg.replace(placeholder, "")
 
     minor_input = (text_minor or "").strip()
     if "\n" in minor_input:
