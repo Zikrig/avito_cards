@@ -286,7 +286,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
                 "spec_list": [],
             },
             CardStates.waiting_for_spec,
-            "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
+            "Укажите CPU (например: _Ryzen 7 7535HS_).",
             "card_default:spec_example",
         ),
     }
