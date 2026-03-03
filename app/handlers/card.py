@@ -168,24 +168,55 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         if not default_specs:
             await callback.answer("В примере нет сохранённых характеристик.", show_alert=True)
             return
+
         data = await state.get_data()
         current: list[str] = list(data.get("spec_list", []))
-        if not current:
-            current = default_specs
+
+        if len(current) >= 5:
+            await callback.answer()
+            await callback.message.answer(
+                "Достигнут лимит: 5 характеристик.\n"
+                "Если хотите сгенерировать карточку, отправьте «готово».",
+                parse_mode="Markdown",
+            )
+            return
+
+        # Подставляем ОДНУ следующую характеристику из примера.
+        idx = len(current)
+        if idx >= len(default_specs):
+            await callback.answer()
+            await callback.message.answer(
+                "Все примерные характеристики уже подставлены.\n"
+                "Введите свою характеристику или отправьте «готово».",
+                reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
+                parse_mode="Markdown",
+            )
+            return
+
+        next_spec = default_specs[idx]
+        current.append(next_spec)
         await state.update_data(spec_list=current)
         await _save_example_if_needed(state)
         await callback.answer()
-        n = len(current) + 1
+
+        n_next = len(current) + 1
+        prefix = (
+            f"Примерная характеристика {len(current)} подставлена.\n"
+            f"_Пример: {next_spec}_\n\n"
+        )
+
         if len(current) >= 5:
             await callback.message.answer(
-                "Примерные характеристики подставлены (5 пар).\n"
-                "Если хотите сгенерировать карточку, отправьте «готово».",
+                prefix
+                + "Достигнут лимит: 5 характеристик.\n"
+                  "Если хотите сгенерировать карточку, отправьте «готово».",
                 parse_mode="Markdown",
             )
         else:
             await callback.message.answer(
-                f"Примерные характеристики подставлены.\n"
-                f"Введите **характеристику {n}** — две части через « — » (или «готово»).",
+                prefix
+                + f"Введите **характеристику {n_next}** — две части через « — » "
+                  "(или «готово»), либо снова нажмите «По умолчанию», чтобы подставить следующую пару из примера.",
                 reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
                 parse_mode="Markdown",
             )
