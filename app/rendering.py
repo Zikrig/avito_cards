@@ -123,6 +123,7 @@ def build_svg(
     price: str,
     specs: list[str],
     template_id: int = 1,
+    use_default_logo: bool = True,
 ) -> str:
     """Собирает SVG из шаблона: 3 фото, логотип, все тексты (название главное/минорное, цена, до 5 характеристик)."""
     template_path = SVG_TEMPLATES.get(int(template_id) if template_id in SVG_TEMPLATES else 1, SVG_TEMPLATE_PATH)
@@ -148,7 +149,8 @@ def build_svg(
 
     if logo_bytes is not None:
         logo_url = to_data_url(logo_bytes, "image/png")
-    elif LOGO_DEFAULT_PATH.exists():
+    elif use_default_logo and LOGO_DEFAULT_PATH.exists():
+        # Логотип по умолчанию (если пользователь явно не отключил логотип).
         logo_url = to_data_url(LOGO_DEFAULT_PATH.read_bytes(), "image/png")
     else:
         logo_url = None
@@ -343,6 +345,7 @@ async def build_card_from_svg(
     price: str = "",
     specs: list[str] | None = None,
     template_id: int = 1,
+    use_default_logo: bool = True,
 ) -> tuple[Path, Path]:
     """Собирает карточку из шаблона SVG (3 фото, логотип, все тексты), сохраняет SVG и рендерит PNG."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -361,6 +364,7 @@ async def build_card_from_svg(
         price,
         specs or [],
         template_id=template_id,
+        use_default_logo=use_default_logo,
     )
     svg_path.write_text(svg_content, encoding="utf-8")
     await render_svg_to_png(svg_content, png_path)

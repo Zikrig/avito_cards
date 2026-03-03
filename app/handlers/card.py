@@ -164,7 +164,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
                 show_alert=True,
             )
             return
-        await state.update_data(logo_file_id=logo_id)
+        await state.update_data(logo_file_id=logo_id, skip_logo=False)
         await state.set_state(CardStates.waiting_for_title_main)
         await callback.answer()
         await callback.message.answer(
@@ -341,7 +341,9 @@ async def wrong_minor_photo_2(message: Message) -> None:
 
 @router.callback_query(F.data == "card_skip_logo", CardStates.waiting_for_logo)
 async def card_skip_logo_callback(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(logo_file_id=None)
+    # Пользователь явно выбирает вариант без логотипа:
+    # не используем ни логотип из примера, ни логотип по умолчанию.
+    await state.update_data(logo_file_id=None, skip_logo=True)
     await state.set_state(CardStates.waiting_for_title_main)
     await callback.message.edit_text(
         f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
@@ -353,7 +355,7 @@ async def card_skip_logo_callback(callback: CallbackQuery, state: FSMContext) ->
 
 @router.message(CardStates.waiting_for_logo, F.photo)
 async def logo_photo_handler(message: Message, state: FSMContext) -> None:
-    await state.update_data(logo_file_id=message.photo[-1].file_id)
+    await state.update_data(logo_file_id=message.photo[-1].file_id, skip_logo=False)
     await state.set_state(CardStates.waiting_for_title_main)
     await message.answer(
         f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
@@ -366,7 +368,7 @@ async def logo_photo_handler(message: Message, state: FSMContext) -> None:
 async def logo_document_handler(message: Message, state: FSMContext) -> None:
     doc = message.document
     if doc and doc.mime_type and doc.mime_type.startswith("image/"):
-        await state.update_data(logo_file_id=doc.file_id)
+        await state.update_data(logo_file_id=doc.file_id, skip_logo=False)
         await state.set_state(CardStates.waiting_for_title_main)
         await message.answer(
             f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
