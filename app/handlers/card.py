@@ -66,8 +66,9 @@ async def card_template_select(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(template_id=int(raw), photo_file_ids=[])
     await state.set_state(CardStates.waiting_for_main_photo)
     await callback.message.edit_text(
-        "Отправьте **главное фото** товара (оно будет в большом блоке справа).",
-        reply_markup=cancel_keyboard(),
+        "Отправьте **главное фото** товара (оно будет в большом блоке справа).\n"
+        "Или нажмите «По умолчанию», чтобы использовать фото из сохранённого примера.",
+        reply_markup=cancel_keyboard(default_callback="card_default:photos"),
         parse_mode="Markdown",
     )
     await callback.answer()
@@ -118,6 +119,78 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
             await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
         return
 
+    if step == "photos":
+        stored = load_examples()
+        photo_ids: list[str] = list(stored.get("example_photo_file_ids", []))
+        if len(photo_ids) != 3:
+            await callback.answer(
+                "В примере не сохранены 3 фото. Сначала задайте их в разделе «Примеры».",
+                show_alert=True,
+            )
+            return
+        await state.update_data(photo_file_ids=photo_ids[:3])
+        await state.set_state(CardStates.waiting_for_logo)
+        await callback.answer()
+        await callback.message.answer(
+            "Фото из примера подставлены.\n"
+            "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» "
+            "или «По умолчанию» для логотипа из примера.",
+            reply_markup=cancel_keyboard(
+                extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
+                default_callback="card_default:logo",
+            ),
+            parse_mode="Markdown",
+        )
+        return
+
+    if step == "logo":
+        stored = load_examples()
+        logo_id = stored.get("example_logo_file_id")
+        if not logo_id:
+            await callback.answer(
+                "В примере не сохранён логотип. Сначала задайте его в разделе «Примеры».",
+                show_alert=True,
+            )
+            return
+        await state.update_data(logo_file_id=logo_id)
+        await state.set_state(CardStates.waiting_for_title_main)
+        await callback.answer()
+        await callback.message.answer(
+            f"Введите **название главное** (одной строкой).\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+            reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
+            parse_mode="Markdown",
+        )
+        return
+
+    if step == "spec_example":
+        stored_defaults = _get_defaults_from_example_store()
+        default_specs: list[str] = list(stored_defaults["spec_list"])
+        if not default_specs:
+            await callback.answer("В примере нет сохранённых характеристик.", show_alert=True)
+            return
+        data = await state.get_data()
+        current: list[str] = list(data.get("spec_list", []))
+        if not current:
+            current = default_specs
+        await state.update_data(spec_list=current)
+        await _save_example_if_needed(state)
+        await callback.answer()
+        n = len(current) + 1
+        if len(current) >= 5:
+            await callback.message.answer(
+                "Примерные характеристики подставлены (5 пар).\n"
+                "Если хотите сгенерировать карточку, отправьте «готово».",
+                parse_mode="Markdown",
+            )
+        else:
+            await callback.message.answer(
+                f"Примерные характеристики подставлены.\n"
+                f"Введите **характеристику {n}** — две части через « — » (или «готово»).",
+                reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
+                parse_mode="Markdown",
+            )
+        return
+
     stored_defaults = _get_defaults_from_example_store()
     defaults = {
         "title_main": (
@@ -145,12 +218,12 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         "price": (
             {
                 "price": stored_defaults["price"],
-                # Если в сохранённом примере уже есть характеристики — подставляем их сразу.
-                "spec_list": list(stored_defaults["spec_list"]),
+                # Характеристики по умолчанию подставляются отдельной кнопкой spec_example.
+                "spec_list": [],
             },
             CardStates.waiting_for_spec,
             "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
-            "card_default:spec_done",
+            "card_default:spec_example",
         ),
     }
     if step not in defaults:
@@ -200,8 +273,11 @@ async def minor_photo_2_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(photo_file_ids=ids)
     await state.set_state(CardStates.waiting_for_logo)
     await message.answer(
-        "Отправьте **логотип** (фото или файл PNG/JPG) или нажмите «Без логотипа», чтобы использовать стандартный.",
-        reply_markup=cancel_keyboard(extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]]),
+        "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
+        reply_markup=cancel_keyboard(
+            extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
+            default_callback="card_default:logo",
+        ),
         parse_mode="Markdown",
     )
 
@@ -356,7 +432,7 @@ async def price_handler(message: Message, state: FSMContext) -> None:
     await state.set_state(CardStates.waiting_for_spec)
     await message.answer(
         "Введите **характеристику 1** — две части через « — » (например: _Экран — 15.6 дюймов_). Или «готово», чтобы закончить (всего до 5 пар).",
-        reply_markup=cancel_keyboard(default_callback="card_default:spec_done"),
+        reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )
 
@@ -403,7 +479,7 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     n = len(spec_list) + 1
     await message.answer(
         f"Пара добавлена. Введите **характеристику {n}** — две части через « — » (или «готово»).",
-        reply_markup=cancel_keyboard(default_callback="card_default:spec_done"),
+        reply_markup=cancel_keyboard(default_callback="card_default:spec_example"),
         parse_mode="Markdown",
     )
 
