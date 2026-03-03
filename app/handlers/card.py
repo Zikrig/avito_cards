@@ -384,9 +384,9 @@ async def text_minor_handler(message: Message, state: FSMContext) -> None:
         text_bottom_line2=EXAMPLE_TEXT_BOTTOM_2,
     )
     await _save_example_if_needed(state)
-    if len(text) >= 50:
+    if len(text) >= 150:
         await message.answer(
-            "⚠ Описание длинное (50+ символов). На карточке отображаются только первые 3 строки."
+            "⚠ Описание длинное (150+ символов). На карточке отображаются только первые 3 строки."
         )
     await state.set_state(CardStates.waiting_for_price)
     await message.answer(
