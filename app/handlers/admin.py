@@ -1,0 +1,395 @@
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+
+from ..auth_store import (
+    get_role,
+    list_users_and_admins,
+    remove_user,
+    update_description_template,
+    update_usage_instructions,
+    ensure_user_role,
+    list_admin_requests,
+    pop_admin_request,
+)
+from ..logo_store import load_logos, set_shop_logo
+from ..states import ConfigStates, LogoConfigStates
+from ..ui import cancel_keyboard, main_menu_keyboard
+
+
+router = Router()
+
+
+def _ensure_min_role(user_id: int, min_role: str) -> bool:
+    order = {"guest": 0, "user": 1, "admin": 2, "root_admin": 3}
+    role = get_role(user_id)
+    return order.get(role, 0) >= order.get(min_role, 0)
+
+
+@router.callback_query(F.data == "menu_usage")
+async def menu_usage(callback: CallbackQuery, state: FSMContext) -> None:
+    from ..auth_store import load_auth
+
+    _ = state
+    usage = load_auth().usage_instructions
+    await callback.message.edit_text(usage, reply_markup=cancel_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_edit_usage")
+async def admin_edit_usage(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    await state.set_state(ConfigStates.waiting_for_value)
+    await state.update_data(admin_edit="usage")
+    await callback.message.edit_text(
+        "Отправьте новый текст инструкции по использованию бота одним сообщением.",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_edit_desc_template")
+async def admin_edit_desc_template(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    await state.set_state(ConfigStates.waiting_for_value)
+    await state.update_data(admin_edit="desc_template")
+    await callback.message.edit_text(
+        "Отправьте новый шаблон описания (текст блока слева). Он будет использоваться по умолчанию.",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_logos")
+async def admin_logos(callback: CallbackQuery, state: FSMContext) -> None:
+    """Меню конфигуратора логотипов: до трёх магазинов, только для администраторов."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    shops = load_logos()
+    rows: list[list[InlineKeyboardButton]] = []
+    for shop in shops:
+        mark = " ✅" if shop.logo_file_id else ""
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{shop.title}{mark}",
+                    callback_data=f"admin_logo_shop:{shop.id}",
+                )
+            ]
+        )
+    rows.append([InlineKeyboardButton(text="⬅️ В меню", callback_data="cancel")])
+    kb = InlineKeyboardMarkup(inline_keyboard=rows)
+    await callback.message.edit_text(
+        "Выберите магазин, для которого нужно задать или обновить логотип.\n"
+        "Всего поддерживается до 3 магазинов. Логотипы используются при генерации карточек.",
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_logo_shop:"))
+async def admin_logo_shop(callback: CallbackQuery, state: FSMContext) -> None:
+    """Выбор конкретного магазина для загрузки логотипа."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    parts = (callback.data or "").split(":", 1)
+    if len(parts) != 2:
+        await callback.answer("Некорректный магазин.", show_alert=True)
+        return
+    try:
+        shop_id = int(parts[1])
+    except ValueError:
+        await callback.answer("Некорректный магазин.", show_alert=True)
+        return
+    shops = load_logos()
+    title = next((s.title for s in shops if s.id == shop_id), f"Магазин {shop_id}")
+    await state.set_state(LogoConfigStates.waiting_for_logo)
+    await state.update_data(admin_logo_shop_id=shop_id)
+    await callback.message.edit_text(
+        f"Отправьте изображение логотипа для «{title}» одним файлом (фото или документ PNG/JPG).",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.message(LogoConfigStates.waiting_for_logo, F.photo)
+async def admin_logo_photo(message: Message, state: FSMContext) -> None:
+    """Сохранение логотипа магазина из фото."""
+    data = await state.get_data()
+    shop_id = int(data.get("admin_logo_shop_id") or 0)
+    if not shop_id:
+        await message.answer("Не удалось определить магазин. Начните с меню конфигуратора логотипов.")
+        await state.clear()
+        return
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    file_id = message.photo[-1].file_id
+    set_shop_logo(shop_id, file_id)
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Логотип магазина сохранён.", reply_markup=main_menu_keyboard(role))
+
+
+@router.message(LogoConfigStates.waiting_for_logo, F.document)
+async def admin_logo_document(message: Message, state: FSMContext) -> None:
+    """Сохранение логотипа магазина из документа-изображения."""
+    data = await state.get_data()
+    shop_id = int(data.get("admin_logo_shop_id") or 0)
+    if not shop_id:
+        await message.answer("Не удалось определить магазин. Начните с меню конфигуратора логотипов.")
+        await state.clear()
+        return
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    doc = message.document
+    if not (doc and doc.mime_type and doc.mime_type.startswith("image/")):
+        await message.answer("Отправьте файл-изображение (PNG, JPG и т.п.) или выйдите в меню.")
+        return
+    set_shop_logo(shop_id, doc.file_id)
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Логотип магазина сохранён.", reply_markup=main_menu_keyboard(role))
+
+
+@router.message(ConfigStates.waiting_for_value, F.text)
+async def admin_value_input(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    kind = data.get("admin_edit")
+    if not kind:
+        # Это не наш хендлер — отдаём управление старой логике конфигурации.
+        return
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    text = message.text.strip()
+    if not text:
+        await message.answer("Текст пустой, отправьте непустое сообщение.")
+        return
+    if kind == "usage":
+        update_usage_instructions(text)
+        await message.answer("Инструкция обновлена.")
+    elif kind == "desc_template":
+        update_description_template(text)
+        await message.answer("Шаблон описания обновлён.")
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
+
+
+@router.callback_query(F.data == "root_admin_users")
+async def root_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    users, admins = list_users_and_admins()
+    requests = list_admin_requests()
+
+    lines: list[str] = []
+    lines.append("Пользователи и администраторы:")
+    if users:
+        for uid in sorted(users):
+            role_mark = "⭐ админ" if uid in admins else "👤 пользователь"
+            lines.append(f"{uid} — {role_mark}")
+    else:
+        lines.append("— нет зарегистрированных пользователей —")
+
+    lines.append("")
+    if requests:
+        lines.append("Заявки на администратора:")
+        for uid, name in requests.items():
+            lines.append(f"{uid} — {name}")
+    else:
+        lines.append("Заявок на администратора нет.")
+
+    keyboard_rows: list[list[InlineKeyboardButton]] = []
+
+    # Кнопки для обработки заявок (одобрить / отклонить)
+    for uid in requests.keys():
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"✅ Одобрить {uid}", callback_data=f"root_admin_approve:{uid}:admin"
+                ),
+                InlineKeyboardButton(
+                    text="🚫 Отклонить", callback_data=f"root_admin_approve:{uid}:reject"
+                ),
+            ]
+        )
+
+    # Кнопки для выбора пользователя и управления ролями
+    for uid in sorted(users):
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚙️ {uid}", callback_data=f"root_admin_user_menu:{uid}"
+                )
+            ]
+        )
+
+    keyboard_rows.append(
+        [InlineKeyboardButton(text="Обновить список", callback_data="root_admin_users")]
+    )
+    keyboard_rows.append([InlineKeyboardButton(text="⬅️ В меню", callback_data="cancel")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+    await callback.message.edit_text("\n".join(lines), reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("root_admin_approve:"))
+async def root_admin_approve(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str, decision = (callback.data or "").split(":", 2)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+    reason = pop_admin_request(target_id)
+    if reason is None:
+        await callback.answer("Заявка уже обработана.", show_alert=True)
+        return
+    if decision == "admin":
+        ensure_user_role(target_id, as_admin=True)
+        await callback.answer("Пользователь назначен администратором.", show_alert=True)
+    else:
+        await callback.answer("Заявка отклонена.", show_alert=True)
+    # Обновим список
+    await root_admin_users(callback, state)
+
+
+@router.callback_query(F.data.startswith("root_admin_user_menu:"))
+async def root_admin_user_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+    users, admins = list_users_and_admins()
+    if target_id not in users:
+        await callback.answer("Пользователь не найден.", show_alert=True)
+        return
+    is_admin = target_id in admins
+    role_text = "администратор" if is_admin else "пользователь"
+    text = f"Управление пользователем {target_id} (текущая роль: {role_text})."
+
+    buttons: list[list[InlineKeyboardButton]] = []
+    if not is_admin:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="Сделать администратором",
+                    callback_data=f"root_admin_user_set_admin:{target_id}",
+                )
+            ]
+        )
+    if is_admin:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="Сделать пользователем",
+                    callback_data=f"root_admin_user_set_user:{target_id}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🗑 Удалить пользователя", callback_data=f"root_admin_user_delete:{target_id}"
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ К списку", callback_data="root_admin_users")]
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("root_admin_user_set_admin:"))
+async def root_admin_user_set_admin(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+    ensure_user_role(target_id, as_admin=True)
+    await callback.answer("Роль пользователя обновлена: администратор.", show_alert=True)
+    await root_admin_user_menu(callback, state)
+
+
+@router.callback_query(F.data.startswith("root_admin_user_set_user:"))
+async def root_admin_user_set_user(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+    ensure_user_role(target_id, as_admin=False)
+    await callback.answer("Роль пользователя обновлена: пользователь.", show_alert=True)
+    await root_admin_user_menu(callback, state)
+
+
+@router.callback_query(F.data.startswith("root_admin_user_delete:"))
+async def root_admin_user_delete(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+    remove_user(target_id)
+    await callback.answer("Пользователь удалён.", show_alert=True)
+    await root_admin_users(callback, state)
+

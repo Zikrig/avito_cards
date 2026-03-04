@@ -4,7 +4,9 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
+from ..auth_store import get_role
 from ..example_store import load_examples, save_examples
+from ..logo_store import load_logos
 from ..services import generate_and_send_card
 from ..states import CardStates
 from ..ui import cancel_keyboard, examples_menu_keyboard, template_select_keyboard
@@ -18,6 +20,35 @@ EXAMPLE_TEXT_BOTTOM_2 = "Доставка или самовывоз"
 EXAMPLE_PRICE = "69 990 ₽"
 
 router = Router()
+
+
+def _logo_choice_buttons(user_id: int) -> list[list[InlineKeyboardButton]]:
+    """
+    Возвращает дополнительные кнопки для выбора логотипа магазина.
+    Доступно только администраторам и root-админам.
+    """
+    role = get_role(user_id)
+    if role not in {"admin", "root_admin"}:
+        return [[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]]
+    shops = load_logos()
+    rows: list[list[InlineKeyboardButton]] = []
+    for shop in shops:
+        if not shop.logo_file_id:
+            continue
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{shop.title} ✅",
+                    callback_data=f"card_logo_shop:{shop.id}",
+                )
+            ]
+        )
+    # Если для админа нет ни одного заданного логотипа магазина — оставляем только кнопку "Без логотипа".
+    if not rows:
+        rows.append([InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")])
+    else:
+        rows.append([InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")])
+    return rows
 
 
 def _get_defaults_from_example_store() -> dict[str, Any]:
@@ -68,6 +99,47 @@ async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("menu_preset:"))
+async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Быстрый старт по пресету: кнопки K&V / МСНГ / Паша в главном меню.
+    Пресет задаёт шаблон карточки и, при наличии, логотип магазина.
+    """
+    await state.clear()
+    raw = (callback.data or "").removeprefix("menu_preset:")
+    if raw not in {"1", "2", "3"}:
+        await callback.answer("Некорректный пресет.", show_alert=True)
+        return
+    preset_id = int(raw)
+    template_id = preset_id  # 1 → К&V, 2 → МСНГ, 3 → Паша
+
+    logo_file_id: str | None = None
+    # Пробуем взять логотип магазина с таким же id из конфигуратора логотипов.
+    for shop in load_logos():
+        if shop.id == preset_id and shop.logo_file_id:
+            logo_file_id = shop.logo_file_id
+            break
+
+    data: dict[str, Any] = {"template_id": template_id, "photo_file_ids": [], "from_preset": preset_id}
+    if logo_file_id:
+        data["logo_file_id"] = logo_file_id
+        data["skip_logo"] = False
+
+    await state.update_data(**data)
+    await state.set_state(CardStates.waiting_for_main_photo)
+
+    labels = {1: "K&V", 2: "МСНГ", 3: "Паша"}
+    label = labels.get(preset_id, "пресет")
+
+    await callback.message.edit_text(
+        f"Вы выбрали пресет «{label}».\n"
+        "Отправьте **3 фото ноутбука одним сообщением**: первое будет главным (в большом блоке справа), "
+        "ещё два — дополнительными.",
+        parse_mode="Markdown",
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("card_tpl:"))
 async def card_template_select(callback: CallbackQuery, state: FSMContext) -> None:
     """Выбор варианта SVG-шаблона перед созданием карточки."""
@@ -96,14 +168,29 @@ async def main_photo_handler(message: Message, state: FSMContext) -> None:
         # Просто копим фото без лишних сообщений, пока не будет 3 штуки.
         return
 
-    # Есть как минимум 3 фото — берём первые три и переходим к логотипу.
+    # Есть как минимум 3 фото — берём первые три.
     await state.update_data(photo_file_ids=ids[:3])
+
+    # Если сценарий запущен через пресет (K&V/МСНГ/Паша),
+    # то не спрашиваем про логотип и сразу переходим к названию.
+    if data.get("from_preset"):
+        await state.set_state(CardStates.waiting_for_title_main)
+        await message.answer(
+            f"Укажите модель и бренд ноутбука.\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+            reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
+            parse_mode="Markdown",
+        )
+        return
+
+    # Иначе переходим к выбору/загрузке логотипа.
     await state.set_state(CardStates.waiting_for_logo)
+    extra_buttons = _logo_choice_buttons(message.from_user.id if message.from_user else 0)
     await message.answer(
         "Получил 3 фото (1 главное и 2 дополнительных).\n"
-        "Теперь отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
+        "Теперь отправьте **логотип** (фото или файл PNG/JPG), выберите один из логотипов магазина, "
+        "нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
         reply_markup=cancel_keyboard(
-            extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
+            extra_buttons=extra_buttons,
             default_callback="card_default:logo",
         ),
         parse_mode="Markdown",
@@ -155,12 +242,13 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         await state.update_data(photo_file_ids=photo_ids[:3])
         await state.set_state(CardStates.waiting_for_logo)
         await callback.answer()
+        extra_buttons = _logo_choice_buttons(callback.from_user.id if callback.from_user else 0)
         await callback.message.answer(
             "Фото из примера подставлены.\n"
-            "Отправьте **логотип** (фото или файл PNG/JPG), нажмите «Без логотипа» "
-            "или «По умолчанию» для логотипа из примера.",
+            "Отправьте **логотип** (фото или файл PNG/JPG), выберите один из логотипов магазина, "
+            "нажмите «Без логотипа» или «По умолчанию» для логотипа из примера.",
             reply_markup=cancel_keyboard(
-                extra_buttons=[[InlineKeyboardButton(text="Без логотипа", callback_data="card_skip_logo")]],
+                extra_buttons=extra_buttons,
                 default_callback="card_default:logo",
             ),
             parse_mode="Markdown",
@@ -355,7 +443,46 @@ async def logo_document_handler(message: Message, state: FSMContext) -> None:
 
 @router.message(CardStates.waiting_for_logo)
 async def wrong_logo(message: Message) -> None:
-    await message.answer("Отправьте логотип фото/документом (изображение) или нажмите «Без логотипа».")
+    await message.answer(
+        "Отправьте логотип фото/документом (изображение), выберите один из логотипов магазина "
+        "или нажмите «Без логотипа»."
+    )
+
+
+@router.callback_query(F.data.startswith("card_logo_shop:"), CardStates.waiting_for_logo)
+async def card_logo_shop_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    """Выбор одного из преднастроенных логотипов магазина (доступно только администраторам)."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    role = get_role(user_id)
+    if role not in {"admin", "root_admin"}:
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    parts = (callback.data or "").split(":", 1)
+    if len(parts) != 2:
+        await callback.answer("Некорректный магазин.", show_alert=True)
+        return
+    try:
+        shop_id = int(parts[1])
+    except ValueError:
+        await callback.answer("Некорректный магазин.", show_alert=True)
+        return
+    shops = load_logos()
+    logo_file_id: str | None = None
+    for shop in shops:
+        if shop.id == shop_id:
+            logo_file_id = shop.logo_file_id
+            break
+    if not logo_file_id:
+        await callback.answer("Для этого магазина ещё не задан логотип.", show_alert=True)
+        return
+    await state.update_data(logo_file_id=logo_file_id, skip_logo=False)
+    await state.set_state(CardStates.waiting_for_title_main)
+    await callback.message.edit_text(
+        f"Логотип магазина выбран.\nУкажите модель и бренд ноутбука.\n_Пример: {EXAMPLE_TITLE_MAIN}_",
+        reply_markup=cancel_keyboard(default_callback="card_default:title_main"),
+        parse_mode="Markdown",
+    )
+    await callback.answer()
 
 
 @router.message(CardStates.waiting_for_title_main, F.text)
@@ -491,6 +618,10 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
 
     label = labels[step]
     value = text
+    if label in ("RAM", "SSD"):
+        normalized = value.lower()
+        if "gb" not in normalized and "гб" not in normalized:
+            value = f"{value} Gb"
     spec_entry = f"{label} — {value}"
     spec_list.append(spec_entry)
     await state.update_data(spec_list=spec_list, spec_step=step + 1)

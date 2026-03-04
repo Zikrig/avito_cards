@@ -27,3 +27,8 @@ class ExampleStates(StatesGroup):
     waiting_for_description = State()
     waiting_for_price = State()
 
+
+class LogoConfigStates(StatesGroup):
+    waiting_for_logo = State()
+    # В будущем можно добавить отдельное состояние для смены названия магазина.
+

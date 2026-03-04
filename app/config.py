@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 class AppConfig:
     bot_token: str
     raw: dict[str, Any]
+    admin_ids: set[int]
 
     @staticmethod
     def load(path: Path, env_path: Path | None = None) -> "AppConfig":
@@ -20,5 +21,16 @@ class AppConfig:
         token = os.getenv("BOT_TOKEN", "").strip()
         if not token:
             raise ValueError("Set BOT_TOKEN in .env (see .env.example).")
-        return AppConfig(bot_token=token, raw=data)
+        admin_raw = os.getenv("ADMIN_IDS", "")
+        admin_ids: set[int] = set()
+        if admin_raw:
+            for part in admin_raw.replace(";", ",").split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    admin_ids.add(int(part))
+                except ValueError:
+                    continue
+        return AppConfig(bot_token=token, raw=data, admin_ids=admin_ids)
 

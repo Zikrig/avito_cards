@@ -1,5 +1,6 @@
 from aiogram import Dispatcher
 
+from .admin import router as admin_router
 from .card import router as card_router
 from .config import router as config_router
 from .examples import router as examples_router
@@ -11,4 +12,5 @@ def include_routers(dp: Dispatcher) -> None:
     dp.include_router(config_router)
     dp.include_router(examples_router)
     dp.include_router(card_router)
+    dp.include_router(admin_router)
 

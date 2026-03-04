@@ -3,14 +3,25 @@ from typing import Any
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🧩 Создать карточку", callback_data="menu_create_card")],
-            [InlineKeyboardButton(text="🖼 Примеры", callback_data="menu_examples")],
-            [InlineKeyboardButton(text="⚙️ Настройки конфигурации", callback_data="menu_config")],
-        ]
-    )
+def main_menu_keyboard(role: str = "user") -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [InlineKeyboardButton(text="🧩 Создать карточку", callback_data="menu_create_card")],
+        [
+            InlineKeyboardButton(text="K&V", callback_data="menu_preset:1"),
+            InlineKeyboardButton(text="МСНГ", callback_data="menu_preset:2"),
+            InlineKeyboardButton(text="Паша", callback_data="menu_preset:3"),
+        ],
+        [InlineKeyboardButton(text="🖼 Примеры", callback_data="menu_examples")],
+        [InlineKeyboardButton(text="ℹ️ Как пользоваться", callback_data="menu_usage")],
+    ]
+    if role in {"admin", "root_admin"}:
+        rows.append([InlineKeyboardButton(text="✏️ Редактировать инструкцию", callback_data="admin_edit_usage")])
+        rows.append([InlineKeyboardButton(text="🧩 Шаблон описания", callback_data="admin_edit_desc_template")])
+        rows.append([InlineKeyboardButton(text="🖼 Конфигуратор логотипов", callback_data="admin_logos")])
+    if role == "root_admin":
+        rows.append([InlineKeyboardButton(text="👤 Управление пользователями", callback_data="root_admin_users")])
+        rows.append([InlineKeyboardButton(text="🔗 Инвайт-ссылки", callback_data="root_admin_invites")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def cancel_keyboard(
