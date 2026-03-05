@@ -44,24 +44,24 @@ def load_logos() -> list[ShopLogo]:
     data = _load_raw()
     shops_raw = data.get("shops")
     shops: list[ShopLogo] = []
+    default_titles = {1: "K&B", 2: "МНСГ", 3: "Паша"}
     if isinstance(shops_raw, list):
         for idx, item in enumerate(shops_raw, start=1):
             if not isinstance(item, dict):
                 continue
             shop_id = int(item.get("id") or idx)
-            # Для существующих записей оставляем их названия,
-            # а для пустых — подставляем человекочитаемые имена пресетов.
-            default_titles = {1: "K&B", 2: "МНСГ", 3: "Паша"}
-            title = str(item.get("title") or default_titles.get(shop_id, f"Магазин {shop_id}"))
+            # Для первых трёх магазинов всегда жёстко подставляем имена пресетов,
+            # чтобы не оставались старые названия вида «Магазин 1».
+            title = default_titles.get(shop_id, str(item.get("title") or f"Магазин {shop_id}"))
             logo_file_id = item.get("logo_file_id")
             if logo_file_id is not None:
                 logo_file_id = str(logo_file_id)
             shops.append(ShopLogo(id=shop_id, title=title, logo_file_id=logo_file_id))
     if not shops:
         shops = [
-            ShopLogo(id=1, title="K&B"),
-            ShopLogo(id=2, title="МНСГ"),
-            ShopLogo(id=3, title="Паша"),
+            ShopLogo(id=1, title=default_titles[1]),
+            ShopLogo(id=2, title=default_titles[2]),
+            ShopLogo(id=3, title=default_titles[3]),
         ]
         save_logos(shops)
     return shops[:3]
