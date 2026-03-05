@@ -22,6 +22,35 @@ EXAMPLE_PRICE = "69 990 ₽"
 router = Router()
 
 
+async def _ensure_registered_callback(callback: CallbackQuery, state: FSMContext | None = None) -> bool:
+    """
+    Проверяет, что пользователь не гость.
+    Если это гость — при необходимости чистит состояние и просит заново войти.
+    Возвращает True, если доступ разрешён.
+    """
+    user_id = callback.from_user.id if callback.from_user else 0
+    role = get_role(user_id)
+    if role != "guest":
+        return True
+    if state is not None:
+        await state.clear()
+    await callback.answer()
+    await callback.message.answer("Доступ к боту есть только у зарегистрированных пользователей. Нажмите /start и войдите.")
+    return False
+
+
+async def _ensure_registered_message(message: Message, state: FSMContext | None = None) -> bool:
+    """Аналогичная проверка для обычных сообщений."""
+    user_id = message.from_user.id if message.from_user else 0
+    role = get_role(user_id)
+    if role != "guest":
+        return True
+    if state is not None:
+        await state.clear()
+    await message.answer("Доступ к боту есть только у зарегистрированных пользователей. Нажмите /start и войдите.")
+    return False
+
+
 def _logo_choice_buttons(user_id: int) -> list[list[InlineKeyboardButton]]:
     """
     Возвращает дополнительные кнопки для выбора логотипа магазина.
@@ -97,6 +126,8 @@ async def _save_example_if_needed(state: FSMContext) -> None:
 
 @router.callback_query(F.data == "menu_create_card")
 async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
+    if not await _ensure_registered_callback(callback, state):
+        return
     await state.clear()
     await state.set_state(CardStates.waiting_for_template)
     await callback.message.edit_text(
@@ -112,6 +143,8 @@ async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
     Быстрый старт по пресету: кнопки K&B / МНСГ / Паша в главном меню.
     Пресет задаёт шаблон карточки и, при наличии, логотип магазина.
     """
+    if not await _ensure_registered_callback(callback, state):
+        return
     await state.clear()
     raw = (callback.data or "").removeprefix("menu_preset:")
     if raw not in {"1", "2", "3"}:
@@ -155,6 +188,8 @@ async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(F.data.startswith("card_tpl:"))
 async def card_template_select(callback: CallbackQuery, state: FSMContext) -> None:
     """Выбор варианта SVG-шаблона перед созданием карточки."""
+    if not await _ensure_registered_callback(callback, state):
+        return
     raw = (callback.data or "").removeprefix("card_tpl:")
     if raw not in {"1", "2", "3"}:
         await callback.answer()
@@ -172,6 +207,8 @@ async def card_template_select(callback: CallbackQuery, state: FSMContext) -> No
 
 @router.message(CardStates.waiting_for_main_photo, F.photo)
 async def main_photo_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     data = await state.get_data()
     ids: list[str] = list(data.get("photo_file_ids", []))
     ids.append(message.photo[-1].file_id)
@@ -212,6 +249,8 @@ async def main_photo_handler(message: Message, state: FSMContext) -> None:
 @router.callback_query(F.data.startswith("card_default:"))
 async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     """Обработка кнопки «По умолчанию»: подставить пример и перейти к следующему шагу."""
+    if not await _ensure_registered_callback(callback, state):
+        return
     step = (callback.data or "").removeprefix("card_default:")
     if not step:
         await callback.answer()
@@ -416,6 +455,8 @@ async def _unused_minor_photo_states(message: Message) -> None:
 
 @router.callback_query(F.data == "card_skip_logo", CardStates.waiting_for_logo)
 async def card_skip_logo_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    if not await _ensure_registered_callback(callback, state):
+        return
     # Пользователь явно выбирает вариант без логотипа:
     # не используем ни логотип из примера, ни логотип по умолчанию.
     await state.update_data(logo_file_id=None, skip_logo=True)
@@ -430,6 +471,8 @@ async def card_skip_logo_callback(callback: CallbackQuery, state: FSMContext) ->
 
 @router.message(CardStates.waiting_for_logo, F.photo)
 async def logo_photo_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     await state.update_data(logo_file_id=message.photo[-1].file_id, skip_logo=False)
     await state.set_state(CardStates.waiting_for_title_main)
     await message.answer(
@@ -441,6 +484,8 @@ async def logo_photo_handler(message: Message, state: FSMContext) -> None:
 
 @router.message(CardStates.waiting_for_logo, F.document)
 async def logo_document_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     doc = message.document
     if doc and doc.mime_type and doc.mime_type.startswith("image/"):
         await state.update_data(logo_file_id=doc.file_id, skip_logo=False)
@@ -500,6 +545,8 @@ async def card_logo_shop_callback(callback: CallbackQuery, state: FSMContext) ->
 
 @router.message(CardStates.waiting_for_title_main, F.text)
 async def title_main_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     await state.update_data(title_main=message.text.strip())
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_minor)
@@ -517,6 +564,8 @@ async def wrong_title_main(message: Message) -> None:
 
 @router.message(CardStates.waiting_for_text_minor, F.text)
 async def text_minor_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     text = message.text.strip()
     await state.update_data(
         text_minor=text,
@@ -543,6 +592,8 @@ async def wrong_text_minor(message: Message) -> None:
 
 @router.message(CardStates.waiting_for_text_bottom_line1, F.text)
 async def text_bottom_1_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     await state.update_data(text_bottom_line1=message.text.strip())
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_bottom_line2)
@@ -560,6 +611,8 @@ async def wrong_text_bottom_1(message: Message) -> None:
 
 @router.message(CardStates.waiting_for_text_bottom_line2, F.text)
 async def text_bottom_2_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     await state.update_data(text_bottom_line2=message.text.strip())
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_price)
@@ -577,6 +630,8 @@ async def wrong_text_bottom_2(message: Message) -> None:
 
 @router.message(CardStates.waiting_for_price, F.text)
 async def price_handler(message: Message, state: FSMContext) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     await state.update_data(price=message.text.strip())
     # Начинаем пошаговый сбор характеристик: CPU, GPU, RAM, SSD, Display.
     await state.update_data(spec_list=[], spec_step=0)
@@ -602,6 +657,8 @@ def _spec_done(text: str) -> bool:
 
 @router.message(CardStates.waiting_for_spec, F.text)
 async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
+    if not await _ensure_registered_message(message, state):
+        return
     text = message.text.strip()
     data = await state.get_data()
     spec_list: list[str] = list(data.get("spec_list", []))
