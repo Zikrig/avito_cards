@@ -267,6 +267,29 @@ async def admin_usage_video_input(message: Message, state: FSMContext) -> None:
     await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
 
 
+@router.message(AdminEditStates.waiting_for_usage_video, F.document)
+async def admin_usage_video_input_document(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    doc = message.document
+    if not (doc and doc.mime_type and doc.mime_type.startswith("video/")):
+        await message.answer("Отправьте именно видеофайл (формат MP4 и т.п.) или перешлите видео-сообщение.")
+        return
+    update_usage_video(doc.file_id)
+    await message.answer("Видео-инструкция обновлена.")
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
+
+
+@router.message(AdminEditStates.waiting_for_usage_video)
+async def admin_usage_video_wrong(message: Message) -> None:
+    await message.answer("Отправьте видеофайл или видео-сообщение для инструкции, либо выйдите в меню.")
+
+
 @router.message(AdminEditStates.waiting_for_desc_template, F.text)
 async def admin_desc_template_input(message: Message, state: FSMContext) -> None:
     user_id = message.from_user.id if message.from_user else 0
