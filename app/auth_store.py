@@ -185,6 +185,15 @@ def get_all_admin_ids() -> set[int]:
     return set(cfg.admin_ids) | set(auth.admins)
 
 
+def list_root_admin_ids() -> set[int]:
+    """
+    Возвращает множество ID root‑администраторов, заданных через ADMIN_IDS в .env.
+    Эти пользователи всегда имеют права root_admin независимо от записей в auth.json.
+    """
+    cfg = get_app_config()
+    return set(cfg.admin_ids)
+
+
 def create_invite(label: str | None = None) -> str:
     """
     Создаёт новый инвайт-токен и сохраняет его.

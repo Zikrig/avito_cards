@@ -13,6 +13,7 @@ from ..auth_store import (
     pop_admin_request,
     create_invite,
     list_invites,
+    list_root_admin_ids,
 )
 from ..logo_store import load_logos, set_shop_logo
 from ..states import AdminEditStates, LogoConfigStates
@@ -213,8 +214,19 @@ async def root_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
     _ = state
     users, admins = list_users_and_admins()
     requests = list_admin_requests()
+    root_admin_ids = list_root_admin_ids()
 
     lines: list[str] = []
+
+    # Блок root‑администраторов из ADMIN_IDS
+    lines.append("Root‑администраторы (ADMIN_IDS):")
+    if root_admin_ids:
+        for uid in sorted(root_admin_ids):
+            lines.append(f"{uid} — root_admin (через ADMIN_IDS)")
+    else:
+        lines.append("— root‑администраторы через ADMIN_IDS не заданы —")
+
+    lines.append("")
     lines.append("Пользователи и администраторы:")
     if users:
         for uid in sorted(users):
@@ -252,6 +264,16 @@ async def root_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
             [
                 InlineKeyboardButton(
                     text=f"⚙️ {uid}", callback_data=f"root_admin_user_menu:{uid}"
+                )
+            ]
+        )
+
+    # Кнопки для управления root‑администраторами (ADMIN_IDS): отдельное меню с подсказкой.
+    for uid in sorted(root_admin_ids):
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚙️ ROOT {uid}", callback_data=f"root_admin_root_menu:{uid}"
                 )
             ]
         )
@@ -337,6 +359,86 @@ async def root_admin_invite_new(callback: CallbackQuery, state: FSMContext) -> N
     await callback.message.edit_text("\n".join(lines), reply_markup=kb)
     await callback.answer()
 
+
+@router.callback_query(F.data.startswith("root_admin_root_menu:"))
+async def root_admin_root_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Меню управления root‑администратором (ID из ADMIN_IDS).
+    Здесь можно посмотреть информацию и удалить записи об этом пользователе из auth.json,
+    но чтобы полностью убрать права root_admin, нужно изменить ADMIN_IDS в .env и перезапустить бота.
+    """
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+
+    users, admins = list_users_and_admins()
+    is_user = target_id in users
+    is_admin = target_id in admins
+
+    lines: list[str] = []
+    lines.append(f"Root‑администратор {target_id}.")
+    lines.append("Этот пользователь указан в ADMIN_IDS в .env и всегда имеет права root_admin.")
+    lines.append("")
+    lines.append("Текущее состояние в auth.json:")
+    lines.append(f"• В списке users: {'да' if is_user else 'нет'}")
+    lines.append(f"• В списке admins: {'да' if is_admin else 'нет'}")
+    lines.append("")
+    lines.append(
+        "Чтобы полностью убрать права root_admin, измените ADMIN_IDS в .env и перезапустите бота."
+    )
+
+    buttons: list[list[InlineKeyboardButton]] = []
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🗑 Очистить записи в auth.json",
+                callback_data=f"root_admin_root_clear:{target_id}",
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ К списку", callback_data="root_admin_users")]
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text("\n".join(lines), reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("root_admin_root_clear:"))
+async def root_admin_root_clear(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Очищает все записи о root‑администраторе в auth.json (users/admins/pending requests),
+    не затрагивая ADMIN_IDS.
+    """
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    _, target_id_str = (callback.data or "").split(":", 1)
+    try:
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("Некорректный ID.", show_alert=True)
+        return
+
+    # Используем уже существующую функцию удаления пользователя,
+    # она чистит users/admins/pending_admin_requests и сохраняет auth.json.
+    remove_user(target_id)
+    await callback.answer("Записи о root‑администраторе в auth.json очищены.", show_alert=True)
+    await root_admin_root_menu(
+        type("Obj", (), {"from_user": callback.from_user, "data": f"root_admin_root_menu:{target_id}", "message": callback.message, "bot": callback.bot})(),  # переиспользуем меню
+        state,
+    )
 
 @router.callback_query(F.data.startswith("root_admin_approve:"))
 async def root_admin_approve(callback: CallbackQuery, state: FSMContext) -> None:
