@@ -25,21 +25,18 @@ class AuthData:
 def _load_raw() -> dict[str, Any]:
     if not AUTH_PATH.exists():
         return {}
-    try:
-        raw = AUTH_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            return data
-    except Exception:
-        pass
+    raw = AUTH_PATH.read_text(encoding="utf-8")
+    data = json.loads(raw)
+    if isinstance(data, dict):
+        return data
     return {}
 
 
 def _save_raw(data: dict[str, Any]) -> None:
-    try:
-        AUTH_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    # Гарантируем наличие директории и не скрываем ошибки записи —
+    # иначе изменения (регистрация, удаление) могут тихо не сохраняться.
+    AUTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+    AUTH_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_auth() -> AuthData:
