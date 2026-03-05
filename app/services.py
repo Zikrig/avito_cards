@@ -4,7 +4,9 @@ from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, Message
 
+from .auth_store import get_role
 from .rendering import build_card_from_svg
+from .ui import main_menu_keyboard
 
 
 async def download_photos(bot: Bot, file_ids: list[str]) -> list[bytes]:
@@ -106,4 +108,11 @@ async def generate_and_send_card(
         pass
     if clear_state:
         await state.clear()
+    # После генерации показываем главное меню
+    user_id = message.from_user.id if message.from_user else 0
+    role = get_role(user_id)
+    if role == "guest":
+        # Гость после генерации — крайне маловероятно, но на всякий случай просто не показываем меню.
+        return
+    await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
 

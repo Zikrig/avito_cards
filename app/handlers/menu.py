@@ -130,3 +130,23 @@ async def menu_examples(callback: CallbackQuery, state: FSMContext) -> None:
     )
     await callback.answer()
 
+
+@router.message()
+async def fallback_to_main_menu(message: Message, state: FSMContext) -> None:
+    """
+    Ответ на любые нерспознанные сообщения: показываем главное меню или экран входа.
+    Этот хэндлер должен быть последним в модуле.
+    """
+    await state.clear()
+    user_id = message.from_user.id if message.from_user else 0
+    role = get_role(user_id)
+    if role == "guest":
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="ВОЙТИ", callback_data="login_start")]]
+        )
+        await message.answer("Это служебный бот.", reply_markup=kb)
+    else:
+        await message.answer(
+            "Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role)
+        )
+
