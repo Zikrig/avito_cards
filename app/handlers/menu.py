@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from ..auth_store import add_admin_request, get_role, ensure_user_role
+from ..auth_store import add_admin_request, get_role, ensure_user_role, consume_invite, get_all_admin_ids
 from ..ui import examples_menu_keyboard, main_menu_keyboard
 
 
@@ -14,6 +14,25 @@ router = Router()
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
     user_id = message.from_user.id if message.from_user else 0
+    text = (message.text or "").strip()
+
+    # Поддержка deep‑link /start <token> для инвайт‑ссылок
+    parts = text.split(maxsplit=1)
+    if len(parts) == 2:
+        payload = parts[1].strip()
+        if payload:
+            invite_label = consume_invite(payload)
+            if invite_label is not None:
+                # Зарегистрируем пользователя и покажем главное меню
+                ensure_user_role(user_id, as_admin=False)
+                role = get_role(user_id)
+                extra = f" «{invite_label}»" if invite_label else ""
+                await message.answer(
+                    f"Вы вошли в бота по инвайт‑ссылке{extra}.",
+                    reply_markup=main_menu_keyboard(role),
+                )
+                return
+
     role = get_role(user_id)
     if role == "guest":
         kb = InlineKeyboardMarkup(
@@ -60,6 +79,25 @@ async def login_admin(callback: CallbackQuery, state: FSMContext) -> None:
     username = callback.from_user.username or ""
     display = f"@{username}" if username else str(user_id)
     add_admin_request(user_id, display)
+
+    # Рассылаем уведомление всем администраторам (root_admin + admin)
+    admin_ids = get_all_admin_ids()
+    text = (
+        "Новая заявка на роль администратора.\n"
+        f"Пользователь: {display}\n"
+        f"ID: {user_id}\n\n"
+        "Обработать заявку можно в разделе «Управление пользователями»."
+    )
+    for admin_id in admin_ids:
+        # Не шлём заявку самому себе, если он уже админ
+        if admin_id == user_id:
+            continue
+        try:
+            await callback.bot.send_message(chat_id=admin_id, text=text)
+        except Exception:
+            # Игнорируем ошибки доставки отдельным администраторам
+            continue
+
     await callback.answer()
     await callback.message.edit_text(
         "Заявка на роль администратора отправлена. Подождите, пока один из администраторов её одобрит."

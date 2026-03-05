@@ -17,6 +17,9 @@ class AuthData:
     usage_instructions: str
     description_template: str
     pending_admin_requests: dict[int, str]
+    # Инвайт-токены для упрощённого входа пользователей.
+    # Ключ — строковый токен, значение — произвольная подпись (например, "Для команды продаж").
+    invites: dict[str, str]
 
 
 def _load_raw() -> dict[str, Any]:
@@ -63,12 +66,21 @@ def load_auth() -> AuthData:
             except (TypeError, ValueError):
                 continue
             pending_admin_requests[uid] = str(v)
+    invites_raw = data.get("invites", {})
+    invites: dict[str, str] = {}
+    if isinstance(invites_raw, dict):
+        for k, v in invites_raw.items():
+            if not isinstance(k, str):
+                continue
+            invites[k] = str(v)
+
     # нормализуем и сохраняем
     data.setdefault("users", list(users))
     data.setdefault("admins", list(admins))
     data["usage_instructions"] = usage_instructions
     data["description_template"] = description_template
     data["pending_admin_requests"] = {str(k): v for k, v in pending_admin_requests.items()}
+    data["invites"] = invites
     _save_raw(data)
 
     return AuthData(
@@ -77,6 +89,7 @@ def load_auth() -> AuthData:
         usage_instructions=usage_instructions,
         description_template=description_template,
         pending_admin_requests=pending_admin_requests,
+        invites=invites,
     )
 
 
@@ -87,6 +100,7 @@ def save_auth(auth: AuthData) -> None:
         "usage_instructions": auth.usage_instructions,
         "description_template": auth.description_template,
         "pending_admin_requests": {str(k): v for k, v in auth.pending_admin_requests.items()},
+        "invites": dict(auth.invites),
     }
     _save_raw(data)
 
@@ -163,4 +177,46 @@ def pop_admin_request(user_id: int) -> str | None:
 def list_admin_requests() -> dict[int, str]:
     auth = load_auth()
     return dict(auth.pending_admin_requests)
+
+
+def get_all_admin_ids() -> set[int]:
+    """
+    Возвращает множество ID всех администраторов, включая root‑админов из настроек.
+    """
+    cfg = get_app_config()
+    auth = load_auth()
+    return set(cfg.admin_ids) | set(auth.admins)
+
+
+def create_invite(label: str | None = None) -> str:
+    """
+    Создаёт новый инвайт-токен и сохраняет его.
+    Возвращает строковый токен, который можно передать в deep‑link /start <token>.
+    """
+    auth = load_auth()
+    # Генерируем токен до тех пор, пока не получим уникальный
+    token = ""
+    while not token or token in auth.invites:
+        token = secrets.token_urlsafe(8)
+    auth.invites[token] = (label or "").strip()
+    save_auth(auth)
+    return token
+
+
+def list_invites() -> dict[str, str]:
+    """Возвращает копию словаря инвайтов token -> label."""
+    auth = load_auth()
+    return dict(auth.invites)
+
+
+def consume_invite(token: str) -> str | None:
+    """
+    Поглощает (использует один раз) инвайт‑токен.
+    Возвращает его подпись либо None, если токена нет.
+    """
+    auth = load_auth()
+    label = auth.invites.pop(token, None)
+    if label is not None:
+        save_auth(auth)
+    return label
 

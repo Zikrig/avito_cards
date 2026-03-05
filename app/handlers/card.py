@@ -129,8 +129,13 @@ async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
 
     data: dict[str, Any] = {"template_id": template_id, "photo_file_ids": [], "from_preset": preset_id}
     if logo_file_id:
+        # Для пресета используем только явно заданный логотип магазина.
         data["logo_file_id"] = logo_file_id
         data["skip_logo"] = False
+    else:
+        # Если для магазина логотип не настроен — генерируем карточку БЕЗ логотипа,
+        # не подставляя дефолтный.
+        data["skip_logo"] = True
 
     await state.update_data(**data)
     await state.set_state(CardStates.waiting_for_main_photo)

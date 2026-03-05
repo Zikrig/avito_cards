@@ -11,6 +11,8 @@ from ..auth_store import (
     ensure_user_role,
     list_admin_requests,
     pop_admin_request,
+    create_invite,
+    list_invites,
 )
 from ..logo_store import load_logos, set_shop_logo
 from ..states import AdminEditStates, LogoConfigStates
@@ -265,6 +267,77 @@ async def root_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
+@router.callback_query(F.data == "root_admin_invites")
+async def root_admin_invites(callback: CallbackQuery, state: FSMContext) -> None:
+    """Просмотр и создание инвайт‑ссылок (токенов) для входа пользователей."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+
+    invites = list_invites()
+    lines: list[str] = []
+    if invites:
+        lines.append("Текущие инвайт‑токены:")
+        for token, label in invites.items():
+            label_part = f" — {label}" if label else ""
+            # Показываем токен как есть; root‑админ может собрать ссылку вида:
+            # https://t.me/<имя_бота>?start=<token>
+            lines.append(f"{token}{label_part}")
+    else:
+        lines.append("Инвайт‑токенов пока нет.")
+    lines.append("")
+    lines.append(
+        "Инвайт‑токен используется один раз при переходе по deep‑link /start <token> "
+        "и автоматически регистрирует пользователя."
+    )
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Создать инвайт‑токен", callback_data="root_admin_invite_new")],
+            [InlineKeyboardButton(text="⬅️ В меню", callback_data="cancel")],
+        ]
+    )
+    await callback.message.edit_text("\n".join(lines), reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "root_admin_invite_new")
+async def root_admin_invite_new(callback: CallbackQuery, state: FSMContext) -> None:
+    """Создание нового инвайт‑токена без подписи."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "root_admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+
+    token = create_invite()
+    invites = list_invites()
+
+    lines: list[str] = []
+    lines.append(f"Создан новый инвайт‑токен: {token}")
+    lines.append("")
+    lines.append("Текущие инвайт‑токены:")
+    for t, label in invites.items():
+        label_part = f" — {label}" if label else ""
+        lines.append(f"{t}{label_part}")
+    lines.append("")
+    lines.append(
+        "Инвайт‑токен используется один раз при переходе по deep‑link /start <token> "
+        "и автоматически регистрирует пользователя."
+    )
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Создать ещё", callback_data="root_admin_invite_new")],
+            [InlineKeyboardButton(text="⬅️ В меню", callback_data="cancel")],
+        ]
+    )
+    await callback.message.edit_text("\n".join(lines), reply_markup=kb)
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("root_admin_approve:"))
 async def root_admin_approve(callback: CallbackQuery, state: FSMContext) -> None:
     user_id = callback.from_user.id if callback.from_user else 0
@@ -285,8 +358,24 @@ async def root_admin_approve(callback: CallbackQuery, state: FSMContext) -> None
     if decision == "admin":
         ensure_user_role(target_id, as_admin=True)
         await callback.answer("Пользователь назначен администратором.", show_alert=True)
+        # Уведомим пользователя о результате
+        try:
+            await callback.bot.send_message(
+                chat_id=target_id,
+                text="Ваша заявка на роль администратора одобрена.",
+            )
+        except Exception:
+            pass
     else:
         await callback.answer("Заявка отклонена.", show_alert=True)
+        # Уведомим пользователя об отклонении
+        try:
+            await callback.bot.send_message(
+                chat_id=target_id,
+                text="Ваша заявка на роль администратора отклонена.",
+            )
+        except Exception:
+            pass
     # Обновим список
     await root_admin_users(callback, state)
 
@@ -362,6 +451,14 @@ async def root_admin_user_set_admin(callback: CallbackQuery, state: FSMContext) 
         return
     ensure_user_role(target_id, as_admin=True)
     await callback.answer("Роль пользователя обновлена: администратор.", show_alert=True)
+    # Сообщим пользователю, кем он назначен
+    try:
+        await callback.bot.send_message(
+            chat_id=target_id,
+            text="Ваша роль в боте изменена: теперь вы администратор.",
+        )
+    except Exception:
+        pass
     await root_admin_user_menu(callback, state)
 
 
@@ -380,6 +477,14 @@ async def root_admin_user_set_user(callback: CallbackQuery, state: FSMContext) -
         return
     ensure_user_role(target_id, as_admin=False)
     await callback.answer("Роль пользователя обновлена: пользователь.", show_alert=True)
+    # Сообщим пользователю, кем он назначен
+    try:
+        await callback.bot.send_message(
+            chat_id=target_id,
+            text="Ваша роль в боте изменена: теперь вы обычный пользователь.",
+        )
+    except Exception:
+        pass
     await root_admin_user_menu(callback, state)
 
 
@@ -396,6 +501,14 @@ async def root_admin_user_delete(callback: CallbackQuery, state: FSMContext) -> 
     except ValueError:
         await callback.answer("Некорректный ID.", show_alert=True)
         return
+    # Попробуем уведомить пользователя до фактического удаления
+    try:
+        await callback.bot.send_message(
+            chat_id=target_id,
+            text="Ваша учётная запись в боте была удалена администратором.",
+        )
+    except Exception:
+        pass
     remove_user(target_id)
     await callback.answer("Пользователь удалён.", show_alert=True)
     await root_admin_users(callback, state)
