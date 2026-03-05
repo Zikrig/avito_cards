@@ -23,7 +23,7 @@ async def generate_and_send_card(
     bot: Bot,
     clear_state: bool = True,
 ) -> None:
-    """Собирает карточку по шаблону SVG (3 фото, логотип по умолчанию, все тексты), отправляет PNG и SVG."""
+    """Собирает карточку по шаблону SVG (3 фото, логотип по умолчанию, все тексты), отправляет только PNG."""
     data = await state.get_data()
     photo_file_ids: list[str] = data.get("photo_file_ids", [])  # [main, minor1, minor2]
     if len(photo_file_ids) != 3:
@@ -98,9 +98,7 @@ async def generate_and_send_card(
         return
 
     photo_file = BufferedInputFile(png_path.read_bytes(), filename=png_path.name)
-    svg_file = BufferedInputFile(svg_path.read_text(encoding="utf-8").encode("utf-8"), filename=svg_path.name)
     await message.answer_photo(photo_file, caption="Готово. Карточка по шаблону создана.")
-    await message.answer_document(svg_file, caption="SVG-файл карточки (изображения встроены).")
     try:
         svg_path.unlink(missing_ok=True)
         png_path.unlink(missing_ok=True)
