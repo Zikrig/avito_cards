@@ -2,10 +2,11 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
+from ..auth_store import load_auth
+from ..example_store import load_examples, save_examples
 from ..services import generate_and_send_card
 from ..states import CardStates, ExampleStates
 from ..ui import cancel_keyboard, example_builder_keyboard, examples_menu_keyboard
-from ..example_store import load_examples, save_examples
 
 
 router = Router()
@@ -134,11 +135,25 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await callback.answer("Сначала нажмите «Заполнить тексты» и введите все данные.", show_alert=True)
         return
 
-    await state.update_data(
-        photo_file_ids=photos[:3],
-        template_id=template_id,
-        logo_file_id=data.get("example_logo_file_id"),
-    )
+    stored = load_examples()
+    desc_template = load_auth().description_template
+    # Подставляем шаблон описания из админки, если в примере нет своего текста
+    text_minor = data.get("text_minor") or stored.get("text_minor") or desc_template
+    updates = {
+        "photo_file_ids": photos[:3],
+        "template_id": template_id,
+        "logo_file_id": data.get("example_logo_file_id"),
+        "text_minor": text_minor,
+    }
+    if not data.get("text_bottom_line1"):
+        updates["text_bottom_line1"] = stored.get("text_bottom_line1") or "Гарантия до 12 месяцев"
+    if not data.get("text_bottom_line2"):
+        updates["text_bottom_line2"] = stored.get("text_bottom_line2") or "Доставка или самовывоз"
+    if not data.get("price"):
+        updates["price"] = stored.get("price") or "69 990 ₽"
+    if not data.get("spec_list"):
+        updates["spec_list"] = stored.get("spec_list") or []
+    await state.update_data(**updates)
     await callback.answer()
     await generate_and_send_card(
         message=callback.message,

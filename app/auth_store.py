@@ -50,9 +50,10 @@ def load_auth() -> AuthData:
             "Этот бот собирает карточки для объявлений на Авито из 3 фото, характеристик и описания.",
         )
     )
-    from .handlers.card import EXAMPLE_TEXT_MINOR  # local import to avoid cycles at module import
-
-    description_template = str(data.get("description_template", EXAMPLE_TEXT_MINOR))
+    DEFAULT_DESCRIPTION_TEMPLATE = (
+        "Это решение подойдёт не только геймерам, но и дизайнерам, стримерам, 3D-моделлерам и видеомонтажёрам."
+    )
+    description_template = str(data.get("description_template", DEFAULT_DESCRIPTION_TEMPLATE))
     pending_raw = data.get("pending_admin_requests", {})
     pending_admin_requests: dict[int, str] = {}
     if isinstance(pending_raw, dict):

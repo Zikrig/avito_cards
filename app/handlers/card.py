@@ -4,7 +4,7 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
-from ..auth_store import get_role
+from ..auth_store import get_role, load_auth
 from ..example_store import load_examples, save_examples
 from ..logo_store import load_logos
 from ..services import generate_and_send_card
@@ -51,16 +51,21 @@ def _logo_choice_buttons(user_id: int) -> list[list[InlineKeyboardButton]]:
     return rows
 
 
+def _get_description_template() -> str:
+    """Текст блока слева по умолчанию: из админского шаблона описания."""
+    return load_auth().description_template
+
+
 def _get_defaults_from_example_store() -> dict[str, Any]:
     """
     Берёт значения по умолчанию из сохранённого примера (examples.json),
-    а если их нет — использует константы из этого файла.
+    а если их нет — шаблон описания из админки и константы из этого файла.
     """
     stored = load_examples()
     return {
         "title_main": str(stored.get("title_main") or EXAMPLE_TITLE_MAIN),
         "title_sub": str(stored.get("title_sub") or EXAMPLE_TITLE_SUB),
-        "text_minor": str(stored.get("text_minor") or EXAMPLE_TEXT_MINOR),
+        "text_minor": str(stored.get("text_minor") or _get_description_template()),
         "text_bottom_line1": str(stored.get("text_bottom_line1") or EXAMPLE_TEXT_BOTTOM_1),
         "text_bottom_line2": str(stored.get("text_bottom_line2") or EXAMPLE_TEXT_BOTTOM_2),
         "price": str(stored.get("price") or EXAMPLE_PRICE),
@@ -346,11 +351,12 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         return
 
     stored_defaults = _get_defaults_from_example_store()
+    desc_example = _get_description_template()
     defaults = {
         "title_main": (
             {"title_main": stored_defaults["title_main"]},
             CardStates.waiting_for_text_minor,
-            f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
+            f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {desc_example}_",
             "card_default:text_minor",
         ),
         "text_minor": (
@@ -491,7 +497,7 @@ async def title_main_handler(message: Message, state: FSMContext) -> None:
     await _save_example_if_needed(state)
     await state.set_state(CardStates.waiting_for_text_minor)
     await message.answer(
-        f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {EXAMPLE_TEXT_MINOR}_",
+        f"Введите **текст блока слева** (описание, можно с переносами).\n_Пример: {_get_description_template()}_",
         reply_markup=cancel_keyboard(default_callback="card_default:text_minor"),
         parse_mode="Markdown",
     )
