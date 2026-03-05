@@ -8,6 +8,7 @@ from ..ui import examples_menu_keyboard, main_menu_keyboard
 
 
 router = Router()
+fallback_router = Router()
 
 
 @router.message(Command("start"))
@@ -131,7 +132,7 @@ async def menu_examples(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.message()
+@fallback_router.message()
 async def fallback_to_main_menu(message: Message, state: FSMContext) -> None:
     """
     Ответ на любые нерспознанные сообщения БЕЗ активного сценария: показываем главное меню или экран входа.
