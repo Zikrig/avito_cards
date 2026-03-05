@@ -137,8 +137,9 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
 
     stored = load_examples()
     desc_template = load_auth().description_template
-    # Подставляем шаблон описания из админки, если в примере нет своего текста
-    text_minor = data.get("text_minor") or stored.get("text_minor") or desc_template
+    # Описание по умолчанию для примера: всегда админский шаблон,
+    # если вы явно не задавали текст блока слева в текущем сеансе.
+    text_minor = data.get("text_minor") or desc_template
     updates = {
         "photo_file_ids": photos[:3],
         "template_id": template_id,
