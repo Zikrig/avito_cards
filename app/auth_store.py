@@ -15,6 +15,7 @@ class AuthData:
     users: set[int]
     admins: set[int]
     usage_instructions: str
+    usage_video_file_id: str | None
     description_template: str
     pending_admin_requests: dict[int, str]
     # Инвайт-токены для упрощённого входа пользователей.
@@ -50,6 +51,8 @@ def load_auth() -> AuthData:
             "Этот бот собирает карточки для объявлений на Авито из 3 фото, характеристик и описания.",
         )
     )
+    usage_video_raw = data.get("usage_video_file_id")
+    usage_video_file_id: str | None = str(usage_video_raw) if isinstance(usage_video_raw, str) else None
     DEFAULT_DESCRIPTION_TEMPLATE = (
         "Это решение подойдёт не только геймерам, но и дизайнерам, стримерам, 3D-моделлерам и видеомонтажёрам."
     )
@@ -75,6 +78,7 @@ def load_auth() -> AuthData:
     data.setdefault("users", list(users))
     data.setdefault("admins", list(admins))
     data["usage_instructions"] = usage_instructions
+    data["usage_video_file_id"] = usage_video_file_id
     data["description_template"] = description_template
     data["pending_admin_requests"] = {str(k): v for k, v in pending_admin_requests.items()}
     data["invites"] = invites
@@ -84,6 +88,7 @@ def load_auth() -> AuthData:
         users=users,
         admins=admins,
         usage_instructions=usage_instructions,
+        usage_video_file_id=usage_video_file_id,
         description_template=description_template,
         pending_admin_requests=pending_admin_requests,
         invites=invites,
@@ -95,6 +100,7 @@ def save_auth(auth: AuthData) -> None:
         "users": sorted(auth.users),
         "admins": sorted(auth.admins),
         "usage_instructions": auth.usage_instructions,
+        "usage_video_file_id": auth.usage_video_file_id,
         "description_template": auth.description_template,
         "pending_admin_requests": {str(k): v for k, v in auth.pending_admin_requests.items()},
         "invites": dict(auth.invites),
@@ -144,6 +150,12 @@ def remove_user(user_id: int) -> None:
 def update_usage_instructions(text: str) -> None:
     auth = load_auth()
     auth.usage_instructions = text.strip()
+    save_auth(auth)
+
+
+def update_usage_video(file_id: str | None) -> None:
+    auth = load_auth()
+    auth.usage_video_file_id = file_id
     save_auth(auth)
 
 

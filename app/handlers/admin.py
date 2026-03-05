@@ -8,11 +8,13 @@ from ..auth_store import (
     remove_user,
     update_description_template,
     update_usage_instructions,
+    update_usage_video,
     ensure_user_role,
     list_admin_requests,
     pop_admin_request,
     create_invite,
     list_invites,
+    load_auth,
 )
 from ..logo_store import load_logos, set_shop_logo
 from ..states import AdminEditStates, LogoConfigStates
@@ -30,11 +32,38 @@ def _ensure_min_role(user_id: int, min_role: str) -> bool:
 
 @router.callback_query(F.data == "menu_usage")
 async def menu_usage(callback: CallbackQuery, state: FSMContext) -> None:
-    from ..auth_store import load_auth
-
     _ = state
-    usage = load_auth().usage_instructions
-    await callback.message.edit_text(usage, reply_markup=cancel_keyboard())
+    auth = load_auth()
+    usage = auth.usage_instructions
+    video_id = auth.usage_video_file_id
+    if video_id:
+        await callback.message.answer_video(
+            video_id,
+            caption=usage or "Инструкция по использованию бота.",
+            reply_markup=cancel_keyboard(),
+        )
+    else:
+        await callback.message.edit_text(usage, reply_markup=cancel_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_edit_data")
+async def admin_edit_data(callback: CallbackQuery, state: FSMContext) -> None:
+    """Подменю редактирования данных: инструкция, шаблон описания, логотипы."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    _ = state
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="ℹ️ Редактировать инструкцию", callback_data="admin_edit_usage")],
+            [InlineKeyboardButton(text="🧩 Шаблон описания", callback_data="admin_edit_desc_template")],
+            [InlineKeyboardButton(text="🖼 Конфигуратор логотипов", callback_data="admin_logos")],
+            [InlineKeyboardButton(text="⬅️ В меню", callback_data="cancel")],
+        ]
+    )
+    await callback.message.edit_text("Что вы хотите изменить?", reply_markup=kb)
     await callback.answer()
 
 
@@ -44,9 +73,43 @@ async def admin_edit_usage(callback: CallbackQuery, state: FSMContext) -> None:
     if not _ensure_min_role(user_id, "admin"):
         await callback.answer("Недостаточно прав.", show_alert=True)
         return
+    await callback.message.edit_text(
+        "Что редактируем в инструкции?",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📝 Текст", callback_data="admin_edit_usage_text")],
+                [InlineKeyboardButton(text="🎬 Видео", callback_data="admin_edit_usage_video")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_edit_data")],
+            ]
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_edit_usage_text")
+async def admin_edit_usage_text(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
     await state.set_state(AdminEditStates.waiting_for_usage)
     await callback.message.edit_text(
         "Отправьте новый текст инструкции по использованию бота одним сообщением.",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_edit_usage_video")
+async def admin_edit_usage_video(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    await state.set_state(AdminEditStates.waiting_for_usage_video)
+    await callback.message.edit_text(
+        "Перешлите или отправьте видео-инструкцию одним сообщением.\n"
+        "Бот запомнит file_id и будет показывать это видео в разделе «Как пользоваться».",
         reply_markup=cancel_keyboard(),
     )
     await callback.answer()
@@ -186,6 +249,24 @@ async def admin_usage_input(message: Message, state: FSMContext) -> None:
     await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
 
 
+@router.message(AdminEditStates.waiting_for_usage_video, F.video)
+async def admin_usage_video_input(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    video = message.video
+    if not video:
+        await message.answer("Отправьте видеофайл с инструкцией.")
+        return
+    update_usage_video(video.file_id)
+    await message.answer("Видео-инструкция обновлена.")
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
+
+
 @router.message(AdminEditStates.waiting_for_desc_template, F.text)
 async def admin_desc_template_input(message: Message, state: FSMContext) -> None:
     user_id = message.from_user.id if message.from_user else 0
@@ -230,12 +311,6 @@ async def root_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
     if plain_users:
         for uid in plain_users:
             lines.append(f"{uid} — 👤 пользователь")
-    else:
-        lines.append("— нет зарегистрированных пользователей —")
-    if users:
-        for uid in sorted(users):
-            role_mark = "⭐ админ" if uid in admins else "👤 пользователь"
-            lines.append(f"{uid} — {role_mark}")
     else:
         lines.append("— нет зарегистрированных пользователей —")
 

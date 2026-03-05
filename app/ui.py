@@ -15,9 +15,7 @@ def main_menu_keyboard(role: str = "user") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="ℹ️ Как пользоваться", callback_data="menu_usage")],
     ]
     if role in {"admin", "root_admin"}:
-        rows.append([InlineKeyboardButton(text="✏️ Редактировать инструкцию", callback_data="admin_edit_usage")])
-        rows.append([InlineKeyboardButton(text="🧩 Шаблон описания", callback_data="admin_edit_desc_template")])
-        rows.append([InlineKeyboardButton(text="🖼 Конфигуратор логотипов", callback_data="admin_logos")])
+        rows.append([InlineKeyboardButton(text="✏️ Изменить данные", callback_data="admin_edit_data")])
     if role == "root_admin":
         rows.append([InlineKeyboardButton(text="👤 Управление пользователями", callback_data="root_admin_users")])
         rows.append([InlineKeyboardButton(text="🔗 Инвайт-ссылки", callback_data="root_admin_invites")])

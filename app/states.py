@@ -36,4 +36,5 @@ class LogoConfigStates(StatesGroup):
 class AdminEditStates(StatesGroup):
     waiting_for_usage = State()
     waiting_for_desc_template = State()
+    waiting_for_usage_video = State()
 
