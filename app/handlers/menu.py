@@ -134,10 +134,14 @@ async def menu_examples(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message()
 async def fallback_to_main_menu(message: Message, state: FSMContext) -> None:
     """
-    Ответ на любые нерспознанные сообщения: показываем главное меню или экран входа.
+    Ответ на любые нерспознанные сообщения БЕЗ активного сценария: показываем главное меню или экран входа.
     Этот хэндлер должен быть последним в модуле.
     """
-    await state.clear()
+    # Не перехватываем сообщения, если сейчас идёт какой-то сценарий (есть активное состояние FSM).
+    current_state = await state.get_state()
+    if current_state is not None:
+        return
+
     user_id = message.from_user.id if message.from_user else 0
     role = get_role(user_id)
     if role == "guest":
