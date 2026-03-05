@@ -65,7 +65,9 @@ def _get_defaults_from_example_store() -> dict[str, Any]:
     return {
         "title_main": str(stored.get("title_main") or EXAMPLE_TITLE_MAIN),
         "title_sub": str(stored.get("title_sub") or EXAMPLE_TITLE_SUB),
-        "text_minor": str(stored.get("text_minor") or _get_description_template()),
+        # Для общего сценария «По умолчанию» описание всегда берём из админского шаблона,
+        # а не из примера, чтобы совпадало с тем, что показывается в подсказке.
+        "text_minor": _get_description_template(),
         "text_bottom_line1": str(stored.get("text_bottom_line1") or EXAMPLE_TEXT_BOTTOM_1),
         "text_bottom_line2": str(stored.get("text_bottom_line2") or EXAMPLE_TEXT_BOTTOM_2),
         "price": str(stored.get("price") or EXAMPLE_PRICE),
