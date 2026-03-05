@@ -13,7 +13,7 @@ from ..auth_store import (
     pop_admin_request,
 )
 from ..logo_store import load_logos, set_shop_logo
-from ..states import ConfigStates, LogoConfigStates
+from ..states import AdminEditStates, LogoConfigStates
 from ..ui import cancel_keyboard, main_menu_keyboard
 
 
@@ -42,8 +42,7 @@ async def admin_edit_usage(callback: CallbackQuery, state: FSMContext) -> None:
     if not _ensure_min_role(user_id, "admin"):
         await callback.answer("Недостаточно прав.", show_alert=True)
         return
-    await state.set_state(ConfigStates.waiting_for_value)
-    await state.update_data(admin_edit="usage")
+    await state.set_state(AdminEditStates.waiting_for_usage)
     await callback.message.edit_text(
         "Отправьте новый текст инструкции по использованию бота одним сообщением.",
         reply_markup=cancel_keyboard(),
@@ -57,8 +56,7 @@ async def admin_edit_desc_template(callback: CallbackQuery, state: FSMContext) -
     if not _ensure_min_role(user_id, "admin"):
         await callback.answer("Недостаточно прав.", show_alert=True)
         return
-    await state.set_state(ConfigStates.waiting_for_value)
-    await state.update_data(admin_edit="desc_template")
+    await state.set_state(AdminEditStates.waiting_for_desc_template)
     await callback.message.edit_text(
         "Отправьте новый шаблон описания (текст блока слева). Он будет использоваться по умолчанию.",
         reply_markup=cancel_keyboard(),
@@ -168,13 +166,8 @@ async def admin_logo_document(message: Message, state: FSMContext) -> None:
     await message.answer("Логотип магазина сохранён.", reply_markup=main_menu_keyboard(role))
 
 
-@router.message(ConfigStates.waiting_for_value, F.text)
-async def admin_value_input(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    kind = data.get("admin_edit")
-    if not kind:
-        # Это не наш хендлер — отдаём управление старой логике конфигурации.
-        return
+@router.message(AdminEditStates.waiting_for_usage, F.text)
+async def admin_usage_input(message: Message, state: FSMContext) -> None:
     user_id = message.from_user.id if message.from_user else 0
     if not _ensure_min_role(user_id, "admin"):
         await message.answer("Недостаточно прав для изменения.")
@@ -184,12 +177,26 @@ async def admin_value_input(message: Message, state: FSMContext) -> None:
     if not text:
         await message.answer("Текст пустой, отправьте непустое сообщение.")
         return
-    if kind == "usage":
-        update_usage_instructions(text)
-        await message.answer("Инструкция обновлена.")
-    elif kind == "desc_template":
-        update_description_template(text)
-        await message.answer("Шаблон описания обновлён.")
+    update_usage_instructions(text)
+    await message.answer("Инструкция обновлена.")
+    await state.clear()
+    role = get_role(user_id)
+    await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))
+
+
+@router.message(AdminEditStates.waiting_for_desc_template, F.text)
+async def admin_desc_template_input(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id if message.from_user else 0
+    if not _ensure_min_role(user_id, "admin"):
+        await message.answer("Недостаточно прав для изменения.")
+        await state.clear()
+        return
+    text = message.text.strip()
+    if not text:
+        await message.answer("Текст пустой, отправьте непустое сообщение.")
+        return
+    update_description_template(text)
+    await message.answer("Шаблон описания обновлён.")
     await state.clear()
     role = get_role(user_id)
     await message.answer("Главное меню. Выберите действие:", reply_markup=main_menu_keyboard(role))

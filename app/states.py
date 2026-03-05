@@ -32,3 +32,8 @@ class LogoConfigStates(StatesGroup):
     waiting_for_logo = State()
     # В будущем можно добавить отдельное состояние для смены названия магазина.
 
+
+class AdminEditStates(StatesGroup):
+    waiting_for_usage = State()
+    waiting_for_desc_template = State()
+

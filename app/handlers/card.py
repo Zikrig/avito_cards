@@ -102,7 +102,7 @@ async def menu_create_card(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(F.data.startswith("menu_preset:"))
 async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
     """
-    Быстрый старт по пресету: кнопки K&V / МСНГ / Паша в главном меню.
+    Быстрый старт по пресету: кнопки K&B / МНСГ / Паша в главном меню.
     Пресет задаёт шаблон карточки и, при наличии, логотип магазина.
     """
     await state.clear()
@@ -111,7 +111,7 @@ async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Некорректный пресет.", show_alert=True)
         return
     preset_id = int(raw)
-    template_id = preset_id  # 1 → К&V, 2 → МСНГ, 3 → Паша
+    template_id = preset_id  # 1 → K&B, 2 → МНСГ, 3 → Паша
 
     logo_file_id: str | None = None
     # Пробуем взять логотип магазина с таким же id из конфигуратора логотипов.
@@ -128,7 +128,7 @@ async def menu_preset(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(**data)
     await state.set_state(CardStates.waiting_for_main_photo)
 
-    labels = {1: "K&V", 2: "МСНГ", 3: "Паша"}
+    labels = {1: "K&B", 2: "МНСГ", 3: "Паша"}
     label = labels.get(preset_id, "пресет")
 
     await callback.message.edit_text(
@@ -171,7 +171,7 @@ async def main_photo_handler(message: Message, state: FSMContext) -> None:
     # Есть как минимум 3 фото — берём первые три.
     await state.update_data(photo_file_ids=ids[:3])
 
-    # Если сценарий запущен через пресет (K&V/МСНГ/Паша),
+    # Если сценарий запущен через пресет (K&B/МНСГ/Паша),
     # то не спрашиваем про логотип и сразу переходим к названию.
     if data.get("from_preset"):
         await state.set_state(CardStates.waiting_for_title_main)

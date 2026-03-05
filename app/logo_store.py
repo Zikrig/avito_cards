@@ -39,7 +39,7 @@ def _save_raw(data: dict[str, Any]) -> None:
 def load_logos() -> list[ShopLogo]:
     """
     Возвращает до трёх магазинов с логотипами из logos.json.
-    Если файл ещё не создан — заполняет заготовкой Магазин 1/2/3.
+    Если файл ещё не создан — заполняет заготовкой K&B / МНСГ / Паша.
     """
     data = _load_raw()
     shops_raw = data.get("shops")
@@ -49,16 +49,19 @@ def load_logos() -> list[ShopLogo]:
             if not isinstance(item, dict):
                 continue
             shop_id = int(item.get("id") or idx)
-            title = str(item.get("title") or f"Магазин {shop_id}")
+            # Для существующих записей оставляем их названия,
+            # а для пустых — подставляем человекочитаемые имена пресетов.
+            default_titles = {1: "K&B", 2: "МНСГ", 3: "Паша"}
+            title = str(item.get("title") or default_titles.get(shop_id, f"Магазин {shop_id}"))
             logo_file_id = item.get("logo_file_id")
             if logo_file_id is not None:
                 logo_file_id = str(logo_file_id)
             shops.append(ShopLogo(id=shop_id, title=title, logo_file_id=logo_file_id))
     if not shops:
         shops = [
-            ShopLogo(id=1, title="Магазин 1"),
-            ShopLogo(id=2, title="Магазин 2"),
-            ShopLogo(id=3, title="Магазин 3"),
+            ShopLogo(id=1, title="K&B"),
+            ShopLogo(id=2, title="МНСГ"),
+            ShopLogo(id=3, title="Паша"),
         ]
         save_logos(shops)
     return shops[:3]
@@ -90,6 +93,8 @@ def set_shop_logo(shop_id: int, logo_file_id: str) -> None:
             updated = True
             break
     if not updated:
-        shops.append(ShopLogo(id=shop_id, title=f"Магазин {shop_id}", logo_file_id=logo_file_id))
+        default_titles = {1: "K&B", 2: "МНСГ", 3: "Паша"}
+        title = default_titles.get(shop_id, f"Магазин {shop_id}")
+        shops.append(ShopLogo(id=shop_id, title=title, logo_file_id=logo_file_id))
     save_logos(shops)
 

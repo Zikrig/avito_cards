@@ -39,7 +39,7 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="КнВ", callback_data="example_gen:1"),
+                InlineKeyboardButton(text="K&B", callback_data="example_gen:1"),
                 InlineKeyboardButton(text="МНСГ", callback_data="example_gen:2"),
                 InlineKeyboardButton(text="Паша", callback_data="example_gen:3"),
             ],
@@ -50,10 +50,10 @@ def examples_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def template_select_keyboard(prefix: str = "card_tpl") -> InlineKeyboardMarkup:
-    """Клавиатура выбора варианта SVG-шаблона (КнВ, МНСГ, Паша)."""
+    """Клавиатура выбора варианта SVG-шаблона (K&B, МНСГ, Паша)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="КнВ", callback_data=f"{prefix}:1")],
+            [InlineKeyboardButton(text="K&B", callback_data=f"{prefix}:1")],
             [InlineKeyboardButton(text="МНСГ", callback_data=f"{prefix}:2")],
             [InlineKeyboardButton(text="Паша", callback_data=f"{prefix}:3")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")],
