@@ -5,16 +5,6 @@ from app.bot import run
 
 if __name__ == "__main__":
     asyncio.run(run())
-'''
-'''Legacy monolithic code below is intentionally disabled.
-
-import asyncio
-
-from app.bot import run
-
-
-if __name__ == "__main__":
-    asyncio.run(run())
 
 import asyncio
 
