@@ -1,4 +1,5 @@
 from io import BytesIO
+import logging
 
 from aiogram import Bot
 from aiogram.fsm.context import FSMContext
@@ -7,6 +8,8 @@ from aiogram.types import BufferedInputFile, Message
 from .auth_store import get_role
 from .rendering import build_card_from_svg
 from .ui import main_menu_keyboard
+
+logger = logging.getLogger(__name__)
 
 
 async def download_photos(bot: Bot, file_ids: list[str]) -> list[bytes]:
@@ -96,8 +99,11 @@ async def generate_and_send_card(
             template_id=template_id,
             use_default_logo=not skip_logo,
         )
-    except Exception as exc:  # noqa: BLE001
-        await message.answer(f"Ошибка при создании карточки: {exc}")
+    except Exception:  # noqa: BLE001
+        # Логируем полный traceback в stderr/journalctl,
+        # а пользователю отправляем короткое сообщение (Telegram ограничивает длину текста).
+        logger.exception("Ошибка при создании карточки")
+        await message.answer("Ошибка при создании карточки. Подробности смотрите в логах сервера.")
         return
 
     photo_file = BufferedInputFile(png_path.read_bytes(), filename=png_path.name)

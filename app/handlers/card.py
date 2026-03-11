@@ -381,8 +381,7 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         if step + 1 >= len(labels):
             from_example = data.get("from_example")
             await callback.message.answer(
-                f"Примерная характеристика {label} подставлена: _{example_value}_.\n"
-                "Все основные характеристики указаны. Генерирую карточку…",
+                f"Примерная характеристика {label} подставлена: _{example_value}_.",
                 parse_mode="Markdown",
             )
             await generate_and_send_card(
@@ -730,7 +729,6 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     if step + 1 >= len(labels):
         # Все 5 характеристик собраны — генерируем карточку.
         from_example = data.get("from_example")
-        await message.answer("Все основные характеристики указаны. Генерирую карточку…")
         await generate_and_send_card(
             message=message,
             state=state,
