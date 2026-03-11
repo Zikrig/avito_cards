@@ -161,6 +161,7 @@ async def example_generate(callback: CallbackQuery, state: FSMContext, bot: Bot)
         state=state,
         bot=bot,
         clear_state=False,
+        requester_user_id=callback.from_user.id if callback.from_user else None,
     )
     await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
 

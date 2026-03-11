@@ -24,6 +24,7 @@ async def generate_and_send_card(
     state: FSMContext,
     bot: Bot,
     clear_state: bool = True,
+    requester_user_id: int | None = None,
 ) -> None:
     """Собирает карточку по шаблону SVG (3 фото, логотип по умолчанию, все тексты), отправляет только PNG."""
     data = await state.get_data()
@@ -109,7 +110,7 @@ async def generate_and_send_card(
     if clear_state:
         await state.clear()
     # После генерации показываем главное меню
-    user_id = message.from_user.id if message.from_user else 0
+    user_id = requester_user_id if requester_user_id is not None else (message.from_user.id if message.from_user else 0)
     role = get_role(user_id)
     if role == "guest":
         # Гость после генерации — крайне маловероятно, но на всякий случай просто не показываем меню.

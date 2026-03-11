@@ -265,7 +265,13 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
         from_example = data.get("from_example")
         await callback.answer()
         # При генерации из примера не чистим данные примера, чтобы не приходилось заново задавать фото и тексты.
-        await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
+        await generate_and_send_card(
+            message=callback.message,
+            state=state,
+            bot=bot,
+            clear_state=not from_example,
+            requester_user_id=callback.from_user.id if callback.from_user else None,
+        )
         if from_example:
             preserved_keys = (
                 "example_photo_file_ids",
@@ -337,7 +343,13 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
             # Все характеристики уже заполнены — генерируем карточку.
             from_example = data.get("from_example")
             await callback.answer()
-            await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
+            await generate_and_send_card(
+                message=callback.message,
+                state=state,
+                bot=bot,
+                clear_state=not from_example,
+                requester_user_id=callback.from_user.id if callback.from_user else None,
+            )
             if from_example:
                 await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
                 await state.clear()
@@ -373,7 +385,13 @@ async def card_default_callback(callback: CallbackQuery, state: FSMContext, bot:
                 "Все основные характеристики указаны. Генерирую карточку…",
                 parse_mode="Markdown",
             )
-            await generate_and_send_card(message=callback.message, state=state, bot=bot, clear_state=not from_example)
+            await generate_and_send_card(
+                message=callback.message,
+                state=state,
+                bot=bot,
+                clear_state=not from_example,
+                requester_user_id=callback.from_user.id if callback.from_user else None,
+            )
             if from_example:
                 await callback.message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
                 await state.clear()
@@ -667,7 +685,13 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     # Позволяем пользователю досрочно завершить ввод характеристик.
     if _spec_done(text) and spec_list:
         from_example = data.get("from_example")
-        await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
+        await generate_and_send_card(
+            message=message,
+            state=state,
+            bot=bot,
+            clear_state=not from_example,
+            requester_user_id=message.from_user.id if message.from_user else None,
+        )
         if from_example:
             await message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
             await state.clear()
@@ -680,7 +704,13 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
     if step >= len(labels):
         # На всякий случай, если шаг вышел за пределы — считаем, что всё заполнено.
         from_example = data.get("from_example")
-        await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
+        await generate_and_send_card(
+            message=message,
+            state=state,
+            bot=bot,
+            clear_state=not from_example,
+            requester_user_id=message.from_user.id if message.from_user else None,
+        )
         if from_example:
             await message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
             await state.clear()
@@ -701,7 +731,13 @@ async def spec_handler(message: Message, state: FSMContext, bot: Bot) -> None:
         # Все 5 характеристик собраны — генерируем карточку.
         from_example = data.get("from_example")
         await message.answer("Все основные характеристики указаны. Генерирую карточку…")
-        await generate_and_send_card(message=message, state=state, bot=bot, clear_state=not from_example)
+        await generate_and_send_card(
+            message=message,
+            state=state,
+            bot=bot,
+            clear_state=not from_example,
+            requester_user_id=message.from_user.id if message.from_user else None,
+        )
         if from_example:
             await message.answer("Раздел «Примеры».", reply_markup=examples_menu_keyboard())
             await state.clear()
